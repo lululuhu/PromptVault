@@ -1,0 +1,4 @@
+{"text": "The quick brown fox jumps over the lazy dog.", "expected": "3 concise bullets"}
+{"text": "Rust is a systems programming language focused on safety and performance.", "expected": "3 concise bullets"}
+{"text": "Prompt engineering is the practice of designing inputs for generative AI.", "expected": "propose a title"}
+{"text": "Short."}

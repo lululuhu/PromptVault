@@ -1,0 +1,204 @@
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(
+    name = "pv",
+    version,
+    about = "Git for AI Prompts — version, diff, branch, and roll back your prompts",
+    long_about = "PromptVault is a local-first version control system for AI prompts.\n\
+                  Version your prompts like code: snapshot, diff, log, and roll back — \
+                  all stored locally as content-addressed objects.",
+    disable_help_subcommand = true
+)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    /// Initialize a new prompt vault in the current directory
+    Init,
+
+    /// List, create, or delete branches
+    Branch {
+        /// Name of the branch to create
+        name: Option<String>,
+
+        /// Delete a branch by name
+        #[arg(short, long, value_name = "BRANCH")]
+        delete: Option<String>,
+    },
+
+    /// Switch to a branch (restores the working tree)
+    Checkout {
+        /// Branch name to switch to
+        branch: String,
+    },
+
+    /// List, create, or delete tags
+    Tag {
+        /// Name of the tag to create (points at HEAD)
+        name: Option<String>,
+
+        /// Delete a tag by name
+        #[arg(short, long, value_name = "TAG")]
+        delete: Option<String>,
+    },
+
+    /// Restore the working tree and index to a past commit (HEAD stays put)
+    Revert {
+        /// Commit hash (or prefix), tag, or branch to revert to
+        commit: String,
+    },
+
+    /// Launch the interactive TUI to browse commit history
+    Tui,
+
+    /// Render two prompt versions against the same dataset and diff them (A/B test)
+    Ab {
+        /// First prompt (ref:path, e.g. main:summarize.md)
+        a: String,
+        /// Second prompt (ref:path, e.g. experiment:summarize.md)
+        b: String,
+        /// Path to a JSON Lines dataset (.jsonl)
+        #[arg(short, long)]
+        dataset: PathBuf,
+        /// Fail if a template references a variable not present in a case
+        #[arg(short, long)]
+        strict: bool,
+        /// Print the A-vs-B line diff for each differing case
+        #[arg(long)]
+        show: bool,
+    },
+
+    /// Manage git-backed remotes for syncing the vault
+    #[command(subcommand)]
+    Remote(RemoteCommand),
+
+    /// Push the vault to a git remote
+    Push {
+        /// Remote name (defaults to "origin")
+        #[arg(default_value = "origin")]
+        remote: String,
+    },
+
+    /// Pull vault changes from a git remote
+    Pull {
+        /// Remote name (defaults to "origin")
+        #[arg(default_value = "origin")]
+        remote: String,
+    },
+
+    /// Render a prompt and send it to an LLM provider (requires `run` feature)
+    #[cfg(feature = "run")]
+    Run {
+        /// Prompt file path or `HEAD:path`
+        prompt: String,
+
+        /// Provider: openai | anthropic | ollama
+        #[arg(short, long)]
+        provider: String,
+
+        /// Model name (provider-specific default if omitted)
+        #[arg(short, long)]
+        model: Option<String>,
+
+        /// Variable bindings as `key=value` (repeatable)
+        #[arg(short = 'v', long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Print the rendered prompt before sending
+        #[arg(long)]
+        show_prompt: bool,
+    },
+
+    /// Add prompt files to the staging area
+    Add {
+        /// Files or directories to add (use '.' for all)
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+    },
+
+    /// Remove a prompt from the staging area (does not delete the file)
+    #[command(alias = "remove")]
+    Rm {
+        /// Tracked paths to unstage
+        #[arg(required = true)]
+        paths: Vec<PathBuf>,
+    },
+
+    /// Record a snapshot of the staged prompts
+    Commit {
+        #[arg(short, long, help = "Commit message")]
+        message: String,
+    },
+
+    /// Show commit history
+    Log,
+
+    /// Show changes: working tree vs HEAD, or between two refs
+    Diff {
+        /// Optional base ref (commit/tag/branch/HEAD). Defaults to HEAD vs working tree.
+        a: Option<String>,
+        /// Optional target ref. When given, compares `a` against `b` (both must be refs).
+        b: Option<String>,
+    },
+
+    /// Show the content of an object by hash, ref, or tracked path
+    Show {
+        /// Object hash (or prefix), HEAD, or a tracked prompt path
+        target: String,
+    },
+
+    /// List all tracked prompts with their status
+    #[command(alias = "ls")]
+    List,
+
+    /// Show the working tree status
+    #[command(alias = "st")]
+    Status,
+
+    /// Print the current content of a prompt file
+    Cat {
+        path: PathBuf,
+    },
+
+    /// Render a prompt template against a dataset (JSON Lines) and run assertions
+    #[command(
+        long_about = "Evaluate a prompt template by rendering it against each case in a \
+        JSON Lines dataset. Each line is a JSON object whose keys fill the {{variables}} \
+        in the prompt. If a case has an `expected` key, the rendered prompt is checked to \
+        contain that string. PromptVault never calls a model — it only renders and asserts. \
+        Pipe the output to any model runner you trust."
+    )]
+    Eval {
+        /// Prompt file path, `HEAD:path`, or blob hash
+        prompt: String,
+
+        /// Path to a JSON Lines dataset (.jsonl)
+        #[arg(short, long)]
+        dataset: PathBuf,
+
+        /// Fail if the template references a variable not present in a case
+        #[arg(short, long)]
+        strict: bool,
+
+        /// Print the fully rendered prompt for each case
+        #[arg(long)]
+        show: bool,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RemoteCommand {
+    /// Add a remote: `pv remote add <name> <url>`
+    Add { name: String, url: String },
+    /// List configured remotes
+    #[command(alias = "ls")]
+    List,
+    /// Remove a remote by name
+    #[command(alias = "rm")]
+    Remove { name: String },
+}

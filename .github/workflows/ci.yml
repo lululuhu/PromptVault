@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Build with `run` feature
+        run: cargo build --features run --verbose
+      - name: Run a smoke workflow
+        run: |
+          set -e
+          BIN="$PWD/target/debug/pv"
+          mkdir -p /tmp/ci && cd /tmp/ci
+          "$BIN" init
+          printf 'You are a summarizer.\n\n{{text}}\n' > hello.md
+          "$BIN" add .
+          "$BIN" commit -m "ci: initial"
+          "$BIN" tag v1
+          "$BIN" log
+          "$BIN" list
+          printf 'You are a precise summarizer.\n\n{{text}}\n' > hello.md
+          "$BIN" diff
+          # Ref-to-ref diff: v1 vs HEAD
+          "$BIN" diff v1 HEAD
+          # Branch + checkout A/B workflow (commit the diff first so tree is clean)
+          "$BIN" add .
+          "$BIN" commit -m "ci: refined variant on main"
+          "$BIN" branch experiment
+          "$BIN" checkout experiment
+          printf 'You are a concise summarizer.\n\n{{text}}\n' > hello.md
+          "$BIN" add .
+          "$BIN" commit -m "ci: experiment variant"
+          "$BIN" checkout main
+          "$BIN" branch
+          # Revert by tag
+          "$BIN" revert v1
+          # Eval workflow
+          printf '{"text":"hello world","expected":"summarizer"}\n{"text":"short"}\n' > cases.jsonl
+          "$BIN" eval hello.md --dataset cases.jsonl --show
+          "$BIN" eval HEAD:hello.md --dataset cases.jsonl --strict
+          # A/B test: main vs experiment
+          "$BIN" ab main:hello.md experiment:hello.md --dataset cases.jsonl --show
+          # Remote sync round-trip (local bare repo)
+          git init --bare --quiet /tmp/bare.git
+          "$BIN" remote add origin /tmp/bare.git
+          "$BIN" push origin
+          mkdir -p /tmp/ci2 && cd /tmp/ci2
+          "$BIN" init
+          "$BIN" remote add origin /tmp/bare.git
+          "$BIN" pull origin
+          "$BIN" log
