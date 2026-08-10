@@ -8,8 +8,7 @@ use std::path::PathBuf;
     about = "Git for AI Prompts — version, diff, branch, and roll back your prompts",
     long_about = "PromptVault is a local-first version control system for AI prompts.\n\
                   Version your prompts like code: snapshot, diff, log, and roll back — \
-                  all stored locally as content-addressed objects.",
-    disable_help_subcommand = true
+                  all stored locally as content-addressed objects."
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -18,8 +17,11 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Command {
-    /// Initialize a new prompt vault in the current directory
-    Init,
+    /// Initialize a new prompt vault in the current (or given) directory
+    Init {
+        /// Directory to initialize (defaults to current directory)
+        path: Option<PathBuf>,
+    },
 
     /// List, create, or delete branches
     Branch {
@@ -94,7 +96,7 @@ pub enum Command {
     /// Render a prompt and send it to an LLM provider (requires `run` feature)
     #[cfg(feature = "run")]
     Run {
-        /// Prompt file path or `HEAD:path`
+        /// Prompt file path, `HEAD:path`, or `branch:path`
         prompt: String,
 
         /// Provider: openai | anthropic | ollama
@@ -104,6 +106,10 @@ pub enum Command {
         /// Model name (provider-specific default if omitted)
         #[arg(short, long)]
         model: Option<String>,
+
+        /// Max tokens for the response (provider-specific default if omitted)
+        #[arg(long)]
+        max_tokens: Option<u32>,
 
         /// Variable bindings as `key=value` (repeatable)
         #[arg(short = 'v', long = "var", value_name = "KEY=VALUE")]
@@ -136,7 +142,11 @@ pub enum Command {
     },
 
     /// Show commit history
-    Log,
+    Log {
+        /// Maximum number of commits to show
+        #[arg(short = 'n', long)]
+        max_count: Option<usize>,
+    },
 
     /// Show changes: working tree vs HEAD, or between two refs
     Diff {

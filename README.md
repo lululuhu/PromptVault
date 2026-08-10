@@ -189,27 +189,27 @@ Use `HEAD:summarize.md` to eval the committed version, or `--strict` to fail on 
 
 | Command | What it does |
 |---|---|
-| `pv init` | Create a `.pv/` vault in the current directory. |
+| `pv init [path]` | Create a `.pv/` vault in the current (or given) directory. |
 | `pv add <path…>` | Stage prompt files (dirs recurse into `.txt/.md/.prompt/.j2/.yaml…`). |
 | `pv rm <path…>` | Unstage a prompt (the file on disk is left alone). |
-| `pv commit -m "msg"` | Snapshot staged prompts. |
+| `pv commit -m "msg"` | Snapshot staged prompts. Refuses empty messages and no-op commits. |
 | `pv status` | Show staged / modified / untracked prompts. |
 | `pv diff [a] [b]` | Diff working tree vs HEAD, or compare two refs (tags/branches/commits). |
-| `pv log` | Show commit history. |
+| `pv log [-n <count>]` | Show commit history (optionally limited to N commits). |
 | `pv list` | List tracked prompts and their status. |
 | `pv branch [name]` | List branches, or create one from HEAD. Use `-d <name>` to delete. |
 | `pv checkout <branch>` | Switch branch (restores the working tree; refuses if dirty). |
 | `pv tag [name]` | List tags, or create one at HEAD. Use `-d <name>` to delete. |
-| `pv revert <commit>` | Restore the working tree + index to a past commit (by hash, tag, or branch). HEAD is unchanged — commit to record the rollback. |
+| `pv revert <commit>` | Restore the working tree + index to a past commit (by hash, tag, or branch). Refuses if the working tree is dirty. HEAD is unchanged — commit to record the rollback. |
 | `pv eval <prompt> -d <file>` | Render a prompt against a JSON Lines dataset and assert `expected`. Flags: `--strict`, `--show`. |
 | `pv ab <a> <b> -d <file>` | Render two prompt versions (`ref:path`) against the same dataset and diff them. Flags: `--strict`, `--show`. |
 | `pv remote add/list/remove` | Manage git-backed remotes for vault sync. |
 | `pv push [remote]` / `pv pull [remote]` | Sync the vault to/from a git remote. |
 | `pv tui` | Interactive commit history browser. |
-| `pv run <prompt> --provider ...` | *(opt-in feature)* Render + send to OpenAI/Anthropic/Ollama. Keys from env vars only. |
+| `pv run <prompt> --provider ...` | *(opt-in feature)* Render + send to OpenAI/Anthropic/Ollama. Keys from env vars only. Flags: `--model`, `--max-tokens`, `--var k=v`, `--show-prompt`. 60s timeout. |
 | `pv show <hash\|HEAD\|path>` | Print any object (blob/tree/commit) by hash, prefix, or path. |
 | `pv cat <path>` | Print a file's current content. |
-| `pv stash push` / `pop` / `drop` / `list` | Shelve and restore uncommitted changes. |
+| `pv stash push` / `pop` / `drop` / `list` | Shelve and restore uncommitted changes. `pop` refuses to overwrite a dirty tree. |
 | `pv reset [<path…>]` | Unstage a file (or everything). Working tree untouched. |
 | `pv clean -f` / `-n` | Delete (or preview) untracked prompt files. |
 | `pv grep <pattern> [-s]` | Search across all tracked prompts (case-insensitive by default). |
@@ -258,6 +258,62 @@ PromptVault is early and moving fast. Planned:
 - [x] **Stash / reset / clean / grep / export / stats** — everyday git-class utilities, prompt-native.
 
 Have an opinion? Open an issue — good ideas ship fast.
+
+## 🔒 Trust model & security
+
+PromptVault is designed to be safe to run on your own prompt files. The default
+build (no cargo features) has **zero network code** — no HTTP client, no SDK,
+nothing that can phone home. The optional `run` feature is the only path that
+makes a network call, and it is opt-in.
+
+**What PromptVault will never do:**
+
+- Read or send API keys anywhere except to the provider you explicitly call with `pv run`.
+- API keys are read **only** from environment variables. They are never written to disk,
+  never logged, never stored in vault history, and never sent anywhere except the provider
+  endpoint you selected.
+- Make any outbound network connection in the default build.
+- Collect telemetry, analytics, or usage data.
+
+**Path safety:** tree entries are validated on read — paths must be relative, contain no
+`..` segments, no absolute paths, no backslashes, no NUL bytes. This prevents a malicious
+`.pv/` (e.g. from an untrusted `pv pull`) from writing outside your working tree via
+`checkout`/`revert`/`stash pop`. Branch and tag names are validated to prevent escaping
+the `refs/` directory.
+
+**Atomic writes:** `index.json`, `HEAD`, branch/tag refs, and new objects are written
+atomically (temp file + fsync + rename), so a crash mid-operation will not corrupt the
+vault. Existing files are never partially overwritten.
+
+**Untrusted remotes:** `pv pull` syncs the `.pv/` directory from a git remote. Only pull
+from remotes you trust. Although tree paths are validated, a hostile remote can still
+replace your tracked prompt content with attacker-controlled text (e.g. a prompt that
+instructs a model to leak data). Treat pulled prompts as untrusted input.
+
+## ⚠️ Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied.
+The authors and contributors are not liable for any damages arising from its use.
+
+**Specifically, you are responsible for:**
+
+- **Prompt content you version and send to models.** PromptVault does not inspect, filter,
+  or moderate prompt content. Whatever you commit and whatever you send via `pv run` is
+  your responsibility — including any content a model produces in response.
+- **API costs.** `pv run` sends prompts to paid APIs (OpenAI, Anthropic). You are
+  responsible for any charges incurred by your API keys. PromptVault does not enforce
+  spending limits.
+- **Model outputs.** Outputs from `pv run` are the model's, not PromptVault's. Verify
+  outputs before relying on them, especially for code, legal, medical, or financial
+  content.
+- **Sensitive data in prompts.** If your prompts contain secrets, PII, or confidential
+  information, committing them to a vault stores that data on disk in plaintext (content-
+  addressed, but unencrypted). Pushing to a remote sends it to that git host. Do not
+  commit secrets you would not commit to git.
+- **Untrusted remotes.** Pulling from a remote you do not control may introduce malicious
+  prompt content or attempt to abuse your trust in tracked files (see Trust model above).
+
+By using PromptVault you acknowledge these risks.
 
 ## 🤝 Contributing
 

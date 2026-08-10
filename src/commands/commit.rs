@@ -9,6 +9,13 @@ use crate::ui::printer;
 
 pub fn run(message: &str) -> Result<()> {
     let repo = Repo::find()?;
+
+    // Reject empty commit messages.
+    let message = message.trim();
+    if message.is_empty() {
+        bail!("commit message is empty");
+    }
+
     let idx = repo.index()?;
     if idx.entries.is_empty() {
         bail!("nothing to commit: stage prompts with `pv add` first");
@@ -17,6 +24,15 @@ pub fn run(message: &str) -> Result<()> {
     let tree_entries = idx.to_tree_entries();
     let tree = objects::write_tree(&repo.pv_dir, &tree_entries)?;
     let parent = repo.head_commit()?;
+
+    // Reject empty commits: if HEAD's tree equals the new tree, nothing changed.
+    if let Some(p_hash) = &parent {
+        let parent_commit = objects::read_commit(&repo.pv_dir, p_hash)?;
+        if parent_commit.tree == tree {
+            bail!("nothing to commit: working tree clean");
+        }
+    }
+
     let author = config::resolve_author(&repo.pv_dir)?;
 
     let commit = Commit {
@@ -29,7 +45,7 @@ pub fn run(message: &str) -> Result<()> {
     let hash = objects::write_commit(&repo.pv_dir, &commit)?;
     refs::update_current(&repo.pv_dir, &hash)?;
 
-    let short = &hash[..7];
+    let short = crate::core::safe::short_hash(&hash).to_string();
     let branch = repo.current_branch()?.unwrap_or_else(|| "HEAD".into());
     printer::ok(&format!("[{branch} {short}] {message}"));
 

@@ -1,14 +1,17 @@
 use std::fs;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use crate::core::objects;
 use crate::core::refs;
 use crate::core::repository::Repo;
+use crate::core::safe;
 use crate::ui::printer;
 
 /// Restore the working tree and index to match `<commit>`, leaving HEAD untouched.
 /// The user can then `pv commit` to record the rollback as a new commit.
+///
+/// Refuses to run if the working tree has uncommitted changes (would overwrite them).
 pub fn run(commit_spec: &str) -> Result<()> {
     let repo = Repo::find()?;
     let hash = resolve_commit(&repo, commit_spec)?
@@ -16,6 +19,14 @@ pub fn run(commit_spec: &str) -> Result<()> {
 
     let target_commit = objects::read_commit(&repo.pv_dir, &hash)?;
     let target_entries = objects::read_tree(&repo.pv_dir, &target_commit.tree)?;
+
+    // Safety: refuse if tracked files have uncommitted modifications.
+    if let Err(e) = safe::check_clean_working_tree(&repo) {
+        bail!(
+            "cannot revert: {e}\n\n\
+             commit or stash your changes first."
+        );
+    }
 
     // Current tracked files (from HEAD), so we can remove ones absent in the target.
     let head_entries = head_tree_entries(&repo)?;
@@ -55,7 +66,7 @@ pub fn run(commit_spec: &str) -> Result<()> {
 
     printer::ok(&format!(
         "Reverted working tree to {short} ({msg})",
-        short = &hash[..7],
+        short = crate::core::safe::short_hash(&hash),
         msg = first_line(&target_commit.message)
     ));
     printer::info("HEAD is unchanged — `pv commit` to record this rollback");
@@ -103,3 +114,4 @@ fn head_tree_entries(repo: &Repo) -> Result<Vec<objects::TreeEntry>> {
 fn first_line(s: &str) -> &str {
     s.lines().next().unwrap_or("")
 }
+

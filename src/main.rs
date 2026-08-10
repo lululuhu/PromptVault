@@ -13,7 +13,7 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let cli = Cli::parse();
     match cli.command {
-        Command::Init => commands::init::run(),
+        Command::Init { path } => commands::init::run(path.as_deref()),
         Command::Branch { name, delete } => commands::branch::run(name.as_deref(), delete.as_deref()),
         Command::Checkout { branch } => commands::checkout::run(&branch),
         Command::Tag { name, delete } => commands::tag::run(name.as_deref(), delete.as_deref()),
@@ -30,7 +30,7 @@ fn run() -> anyhow::Result<()> {
         Command::Push { remote } => commands::remote::push(&remote),
         Command::Pull { remote } => commands::remote::pull(&remote),
         #[cfg(feature = "run")]
-        Command::Run { prompt, provider, model, vars, show_prompt } => {
+        Command::Run { prompt, provider, model, max_tokens, vars, show_prompt } => {
             let parsed_vars = vars
                 .into_iter()
                 .map(|kv| {
@@ -40,12 +40,12 @@ fn run() -> anyhow::Result<()> {
                     Ok::<_, anyhow::Error>((k.to_string(), v.to_string()))
                 })
                 .collect::<anyhow::Result<Vec<_>>>()?;
-            commands::run::run(&prompt, &provider, model.as_deref(), parsed_vars, show_prompt)
+            commands::run::run(&prompt, &provider, model.as_deref(), max_tokens, parsed_vars, show_prompt)
         }
         Command::Add { paths } => commands::add::run(paths),
         Command::Rm { paths } => commands::rm::run(paths),
         Command::Commit { message } => commands::commit::run(&message),
-        Command::Log => commands::log::run(),
+        Command::Log { max_count } => commands::log::run(max_count),
         Command::Diff { a, b } => {
             let mut args = Vec::new();
             if let Some(a) = a {

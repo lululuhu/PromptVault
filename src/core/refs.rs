@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 
+use crate::core::safe;
+
 pub const DEFAULT_BRANCH: &str = "main";
 
 pub fn head_path(pv_dir: &Path) -> PathBuf {
@@ -58,7 +60,7 @@ pub fn resolve_head(pv_dir: &Path) -> Result<Option<String>> {
 
 pub fn init_head(pv_dir: &Path, branch: &str) -> Result<()> {
     fs::create_dir_all(refs_dir(pv_dir))?;
-    fs::write(head_path(pv_dir), format!("ref: refs/heads/{branch}\n"))?;
+    safe::atomic_write(&head_path(pv_dir), format!("ref: refs/heads/{branch}\n").as_bytes())?;
     Ok(())
 }
 
@@ -66,38 +68,30 @@ pub fn init_head(pv_dir: &Path, branch: &str) -> Result<()> {
 pub fn update_current(pv_dir: &Path, commit: &str) -> Result<()> {
     if let Some(name) = current_branch(pv_dir)? {
         let branch_file = refs_dir(pv_dir).join(name);
-        fs::write(&branch_file, format!("{commit}\n"))?;
+        safe::atomic_write(&branch_file, format!("{commit}\n").as_bytes())?;
     } else {
-        fs::write(head_path(pv_dir), format!("{commit}\n"))?;
+        safe::atomic_write(&head_path(pv_dir), format!("{commit}\n").as_bytes())?;
     }
     Ok(())
 }
 
-/// List all branch names.
+/// List all branch names (recursive, so nested refs are visible too).
 pub fn list_branches(pv_dir: &Path) -> Result<Vec<String>> {
-    let dir = refs_dir(pv_dir);
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut names = Vec::new();
-    for entry in fs::read_dir(&dir)? {
-        let entry = entry?;
-        if entry.file_type()?.is_file() {
-            names.push(entry.file_name().to_string_lossy().to_string());
-        }
-    }
-    names.sort();
-    Ok(names)
+    list_refs_recursive(&refs_dir(pv_dir))
 }
 
 pub fn branch_exists(pv_dir: &Path, name: &str) -> bool {
     refs_dir(pv_dir).join(name).exists()
 }
 
-/// Create a branch pointing at `commit`.
+/// Create a branch pointing at `commit`. Validates the name first.
 pub fn create_branch(pv_dir: &Path, name: &str, commit: &str) -> Result<()> {
+    safe::validate_ref_name(name)?;
     fs::create_dir_all(refs_dir(pv_dir))?;
-    fs::write(refs_dir(pv_dir).join(name), format!("{commit}\n"))?;
+    safe::atomic_write(
+        &refs_dir(pv_dir).join(name),
+        format!("{commit}\n").as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -112,6 +106,7 @@ pub fn resolve_branch(pv_dir: &Path, name: &str) -> Result<Option<String>> {
 }
 
 pub fn delete_branch(pv_dir: &Path, name: &str) -> Result<()> {
+    safe::validate_ref_name(name)?;
     let f = refs_dir(pv_dir).join(name);
     if !f.exists() {
         anyhow::bail!("branch '{name}' does not exist");
@@ -122,7 +117,11 @@ pub fn delete_branch(pv_dir: &Path, name: &str) -> Result<()> {
 
 /// Point HEAD at a branch (attach).
 pub fn set_head_to_branch(pv_dir: &Path, name: &str) -> Result<()> {
-    fs::write(head_path(pv_dir), format!("ref: refs/heads/{name}\n"))?;
+    safe::validate_ref_name(name)?;
+    safe::atomic_write(
+        &head_path(pv_dir),
+        format!("ref: refs/heads/{name}\n").as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -133,19 +132,7 @@ pub fn tags_dir(pv_dir: &Path) -> PathBuf {
 }
 
 pub fn list_tags(pv_dir: &Path) -> Result<Vec<String>> {
-    let dir = tags_dir(pv_dir);
-    if !dir.exists() {
-        return Ok(Vec::new());
-    }
-    let mut names = Vec::new();
-    for entry in fs::read_dir(&dir)? {
-        let entry = entry?;
-        if entry.file_type()?.is_file() {
-            names.push(entry.file_name().to_string_lossy().to_string());
-        }
-    }
-    names.sort();
-    Ok(names)
+    list_refs_recursive(&tags_dir(pv_dir))
 }
 
 pub fn tag_exists(pv_dir: &Path, name: &str) -> bool {
@@ -153,8 +140,12 @@ pub fn tag_exists(pv_dir: &Path, name: &str) -> bool {
 }
 
 pub fn create_tag(pv_dir: &Path, name: &str, commit: &str) -> Result<()> {
+    safe::validate_ref_name(name)?;
     fs::create_dir_all(tags_dir(pv_dir))?;
-    fs::write(tags_dir(pv_dir).join(name), format!("{commit}\n"))?;
+    safe::atomic_write(
+        &tags_dir(pv_dir).join(name),
+        format!("{commit}\n").as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -168,6 +159,7 @@ pub fn resolve_tag(pv_dir: &Path, name: &str) -> Result<Option<String>> {
 }
 
 pub fn delete_tag(pv_dir: &Path, name: &str) -> Result<()> {
+    safe::validate_ref_name(name)?;
     let f = tags_dir(pv_dir).join(name);
     if !f.exists() {
         anyhow::bail!("tag '{name}' does not exist");
@@ -175,3 +167,36 @@ pub fn delete_tag(pv_dir: &Path, name: &str) -> Result<()> {
     fs::remove_file(&f)?;
     Ok(())
 }
+
+/// Recursively list all files under `dir`, returning paths relative to `dir`.
+/// Used so nested refs (e.g. `feature/x`) are visible in `branch`/`tag` listings.
+fn list_refs_recursive(dir: &Path) -> Result<Vec<String>> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut names = Vec::new();
+    walk_refs(dir, dir, &mut names)?;
+    names.sort();
+    Ok(names)
+}
+
+fn walk_refs(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let p = entry.path();
+        // Use symlink_metadata so we don't follow symlinks out of the refs dir.
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            walk_refs(root, &p, out)?;
+        } else if ft.is_file() {
+            let rel = p
+                .strip_prefix(root)
+                .unwrap_or(&p)
+                .to_string_lossy()
+                .replace('\\', "/");
+            out.push(rel);
+        }
+    }
+    Ok(())
+}
+

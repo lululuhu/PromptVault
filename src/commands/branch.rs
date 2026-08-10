@@ -27,7 +27,7 @@ pub fn run(name: Option<&str>, delete: Option<&str>) -> Result<()> {
             bail!("cannot create branch with no commits yet");
         };
         refs::create_branch(&repo.pv_dir, n, &commit)?;
-        printer::ok(&format!("Created branch '{n}' at {short}", short = &commit[..7]));
+        printer::ok(&format!("Created branch '{n}' at {short}", short = crate::core::safe::short_hash(&commit)));
         return Ok(());
     }
 

@@ -1,12 +1,20 @@
+use std::path::Path;
+
 use crate::core::repository;
 use crate::ui::printer;
 
-pub fn run() -> anyhow::Result<()> {
-    let cwd = std::env::current_dir()?;
-    repository::init(&cwd)?;
+pub fn run(path: Option<&Path>) -> anyhow::Result<()> {
+    let dir = match path {
+        Some(p) => {
+            std::fs::create_dir_all(p)?;
+            std::fs::canonicalize(p)?
+        }
+        None => std::env::current_dir()?,
+    };
+    repository::init(&dir)?;
     printer::ok(&format!(
         "Initialized empty prompt vault in {}",
-        cwd.join(".pv").display()
+        dir.join(".pv").display()
     ));
     Ok(())
 }

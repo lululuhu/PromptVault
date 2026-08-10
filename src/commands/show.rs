@@ -13,7 +13,7 @@ pub fn run(target: &str) -> Result<()> {
             ObjectType::Tree => {
                 let entries = objects::read_tree(&repo.pv_dir, &hash)?;
                 for e in entries {
-                    println!("{}  {}", &e.hash[..7], e.path);
+                    println!("{}  {}", crate::core::safe::short_hash(&e.hash), e.path);
                 }
             }
             ObjectType::Commit => {

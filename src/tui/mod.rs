@@ -86,7 +86,7 @@ fn run_loop(
             let items: Vec<ListItem> = commits
                 .iter()
                 .map(|c| {
-                    let short = &c.hash[..7];
+                    let short = crate::core::safe::short_hash(&c.hash).to_string();
                     let msg = c.commit.message.lines().next().unwrap_or("(no message)");
                     ListItem::new(Line::from(vec![
                         Span::styled(
@@ -171,7 +171,7 @@ fn render_detail<'a>(c: &CommitInfo) -> Paragraph<'a> {
     for e in &c.entries {
         lines.push(Line::from(vec![
             Span::styled(
-                format!("  {}  ", &e.hash[..7]),
+                format!("  {}  ", crate::core::safe::short_hash(&e.hash)),
                 Style::default().fg(Color::Green),
             ),
             Span::raw(e.path.clone()),

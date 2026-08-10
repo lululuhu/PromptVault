@@ -1,6 +1,6 @@
 //! `pv stash` — temporarily shelve uncommitted changes (staged + working tree).
 //!
-//! Stores the working tree state as a blob in `.pv/stash`. Re-applies on `pop`.
+//! Stores the working tree state in `.pv/stash` (binary-safe). Re-applies on `pop`.
 //! One-slot stash (simple, like git's default). The HEAD tree is not touched.
 
 use std::fs;
@@ -11,14 +11,15 @@ use serde::{Deserialize, Serialize};
 use crate::core::ignore::IgnoreSet;
 use crate::core::objects::{self, ObjectType};
 use crate::core::repository::{is_prompt_file, Repo};
+use crate::core::safe;
 use crate::ui::printer;
 
 const STASH_FILE: &str = "stash";
 
 #[derive(Serialize, Deserialize, Default)]
 struct Stash {
-    /// path -> blob content (the working tree version at stash time)
-    files: Vec<(String, String)>,
+    /// path -> blob content (the working tree version at stash time), binary-safe
+    files: Vec<(String, Vec<u8>)>,
 }
 
 pub fn push() -> Result<()> {
@@ -44,17 +45,17 @@ pub fn push() -> Result<()> {
     let mut dirty = false;
     for p in &paths {
         let abs = repo.root.join(p);
-        let content = match fs::read_to_string(&abs) {
+        let content = match fs::read(&abs) {
             Ok(c) => c,
             Err(_) => {
-                // File deleted from working tree — record as deleted (skip).
+                // File deleted from working tree — record as deleted (skip content).
                 dirty = true;
                 continue;
             }
         };
         // Is it different from HEAD?
         let head_hash = head_entries.iter().find(|e| &e.path == p).map(|e| &e.hash);
-        let cur_hash = objects::hash_blob(content.as_bytes());
+        let cur_hash = objects::hash_blob(&content);
         if head_hash.map(|h| h != &cur_hash).unwrap_or(true) {
             dirty = true;
         }
@@ -65,8 +66,8 @@ pub fn push() -> Result<()> {
         bail!("no local changes to stash");
     }
 
-    let json = serde_json::to_string_pretty(&stash)?;
-    fs::write(&stash_path, json)?;
+    let json = serde_json::to_string(&stash)?;
+    safe::atomic_write(&stash_path, json.as_bytes())?;
 
     // Reset working tree to HEAD.
     let ignore = IgnoreSet::load(&repo.root);
@@ -87,6 +88,14 @@ pub fn pop() -> Result<()> {
         bail!("no stash to pop");
     }
 
+    // Safety: refuse to overwrite uncommitted changes.
+    if let Err(e) = safe::check_clean_working_tree(&repo) {
+        bail!(
+            "cannot pop stash: {e}\n\n\
+             commit or stash your current changes first, or use `pv stash drop` to discard the stash."
+        );
+    }
+
     let json = fs::read_to_string(&stash_path)?;
     let stash: Stash = serde_json::from_str(&json)?;
 
@@ -96,13 +105,14 @@ pub fn pop() -> Result<()> {
             fs::create_dir_all(parent)?;
         }
         fs::write(&abs, content)?;
-        let h = objects::write_object(&repo.pv_dir, ObjectType::Blob, content.as_bytes())?;
+        let h = objects::write_object(&repo.pv_dir, ObjectType::Blob, content)?;
         let mut idx = repo.index()?;
         idx.add(path, &h);
         repo.save_index(&idx)?;
         println!("{}  {}", printer::dim("restored"), path);
     }
 
+    // Only drop the stash after a successful restore.
     fs::remove_file(&stash_path)?;
     printer::ok(&format!("Popped stash ({} file(s)).", stash.files.len()));
     Ok(())
@@ -146,14 +156,14 @@ fn head_tree_entries(repo: &Repo) -> Result<Vec<objects::TreeEntry>> {
 fn restore_head_tree(
     repo: &Repo,
     head_entries: &[objects::TreeEntry],
-    _ignore: &IgnoreSet,
+    ignore: &IgnoreSet,
 ) -> Result<()> {
     let head_paths: std::collections::HashSet<&String> =
         head_entries.iter().map(|e| &e.path).collect();
 
-    // Remove any prompt file in working tree that is not in HEAD.
+    // Remove any prompt file in working tree that is not in HEAD (and not ignored).
     let mut to_remove = Vec::new();
-    collect_prompt_files(&repo.root, &repo.root, &mut to_remove)?;
+    collect_prompt_files(&repo.root, &repo.root, ignore, &mut to_remove)?;
     for p in to_remove {
         if !head_paths.contains(&p) {
             let abs = repo.root.join(&p);
@@ -183,7 +193,12 @@ fn restore_head_tree(
     Ok(())
 }
 
-fn collect_prompt_files(root: &std::path::Path, dir: &std::path::Path, out: &mut Vec<String>) -> Result<()> {
+fn collect_prompt_files(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    ignore: &IgnoreSet,
+    out: &mut Vec<String>,
+) -> Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let p = entry.path();
@@ -191,15 +206,19 @@ fn collect_prompt_files(root: &std::path::Path, dir: &std::path::Path, out: &mut
         if name == ".pv" || name == ".git" || name == "target" {
             continue;
         }
-        if p.is_dir() {
-            collect_prompt_files(root, &p, out)?;
-        } else if is_prompt_file(&p) {
+        // Use symlink_metadata so we don't follow symlinks (avoid cycles / escapes).
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            collect_prompt_files(root, &p, ignore, out)?;
+        } else if ft.is_file() && is_prompt_file(&p) {
             let rel = p
                 .strip_prefix(root)
                 .unwrap_or(&p)
                 .to_string_lossy()
                 .replace('\\', "/");
-            out.push(rel);
+            if !ignore.is_ignored(&rel) {
+                out.push(rel);
+            }
         }
     }
     Ok(())

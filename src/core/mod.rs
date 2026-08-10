@@ -6,3 +6,4 @@ pub mod objects;
 pub mod prompt_ref;
 pub mod refs;
 pub mod repository;
+pub mod safe;

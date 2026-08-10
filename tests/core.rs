@@ -149,22 +149,25 @@ fn head_resolves_through_branch() {
 fn index_add_and_persist() {
     let tmp = TempDir::new().unwrap();
     let pv = init_vault(tmp.path());
+    let hash_a = promptvault::core::objects::hash_blob(b"content a");
+    let hash_b = promptvault::core::objects::hash_blob(b"content b");
+    let hash_a2 = promptvault::core::objects::hash_blob(b"content a v2");
     let mut idx = promptvault::core::index::Index::default();
-    idx.add("prompts/a.md", "hashA");
-    idx.add("prompts/b.md", "hashB");
+    idx.add("prompts/a.md", &hash_a);
+    idx.add("prompts/b.md", &hash_b);
     idx.save(&pv).unwrap();
 
     let loaded = promptvault::core::index::Index::load(&pv).unwrap();
     assert_eq!(loaded.entries.len(), 2);
-    assert_eq!(loaded.get("prompts/a.md"), Some("hashA"));
+    assert_eq!(loaded.get("prompts/a.md"), Some(hash_a.as_str()));
 
     // Re-adding updates in place.
     let mut idx = loaded;
-    idx.add("prompts/a.md", "hashA2");
+    idx.add("prompts/a.md", &hash_a2);
     idx.save(&pv).unwrap();
     let loaded = promptvault::core::index::Index::load(&pv).unwrap();
     assert_eq!(loaded.entries.len(), 2);
-    assert_eq!(loaded.get("prompts/a.md"), Some("hashA2"));
+    assert_eq!(loaded.get("prompts/a.md"), Some(hash_a2.as_str()));
 }
 
 #[test]

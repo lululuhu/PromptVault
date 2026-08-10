@@ -21,7 +21,7 @@ pub fn run(name: Option<&str>, delete: Option<&str>) -> Result<()> {
             bail!("cannot create tag with no commits yet");
         };
         refs::create_tag(&repo.pv_dir, n, &commit)?;
-        printer::ok(&format!("Created tag '{n}' at {short}", short = &commit[..7]));
+        printer::ok(&format!("Created tag '{n}' at {short}", short = crate::core::safe::short_hash(&commit)));
         return Ok(());
     }
 

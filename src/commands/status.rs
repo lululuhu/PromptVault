@@ -49,7 +49,7 @@ pub fn run() -> Result<()> {
 
     let branch = repo.current_branch()?.unwrap_or_else(|| "HEAD".into());
     let head_state = match repo.head_commit()? {
-        Some(h) => format!("{} on {branch}", &h[..7]),
+        Some(h) => format!("{} on {branch}", crate::core::safe::short_hash(&h)),
         None => format!("no commits on {branch}"),
     };
     println!("On branch {branch} ({})", printer::dim(&head_state));

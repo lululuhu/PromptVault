@@ -11,6 +11,7 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 
 use crate::core::hash::hash_bytes;
+use crate::core::safe;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObjectType {
@@ -49,8 +50,11 @@ pub struct TreeEntry {
     pub hash: String,
 }
 
-fn split_hash(hash: &str) -> (&str, &str) {
-    hash.split_at(2)
+fn split_hash(hash: &str) -> Result<(&str, &str)> {
+    if !safe::is_valid_hash(hash) {
+        bail!("invalid object hash: {hash:?} (expected 64 hex chars)");
+    }
+    Ok(hash.split_at(2))
 }
 
 fn framed(kind: ObjectType, data: &[u8]) -> Vec<u8> {
@@ -64,21 +68,22 @@ fn framed(kind: ObjectType, data: &[u8]) -> Vec<u8> {
 
 /// Write an object of the given kind and return its SHA-256 hash.
 /// If the object already exists, this is a no-op (content addressing).
+/// Uses atomic write (temp + rename) for crash safety.
 pub fn write_object(pv_dir: &Path, kind: ObjectType, data: &[u8]) -> Result<String> {
     let content = framed(kind, data);
     let hash = hash_bytes(&content);
-    let (dir, file) = split_hash(&hash);
+    let (dir, file) = split_hash(&hash)?;
     let obj_dir = pv_dir.join("objects").join(dir);
     fs::create_dir_all(&obj_dir)?;
     let obj_path = obj_dir.join(file);
     if !obj_path.exists() {
-        fs::write(&obj_path, &content)?;
+        safe::atomic_write(&obj_path, &content)?;
     }
     Ok(hash)
 }
 
 pub fn read_object(pv_dir: &Path, hash: &str) -> Result<Object> {
-    let (dir, file) = split_hash(hash);
+    let (dir, file) = split_hash(hash)?;
     let path = pv_dir.join("objects").join(dir).join(file);
     let content = fs::read(&path).with_context(|| format!("object {hash} not found"))?;
     let nul = content
@@ -92,8 +97,10 @@ pub fn read_object(pv_dir: &Path, hash: &str) -> Result<Object> {
 }
 
 pub fn object_exists(pv_dir: &Path, hash: &str) -> bool {
-    let (dir, file) = split_hash(hash);
-    pv_dir.join("objects").join(dir).join(file).exists()
+    match split_hash(hash) {
+        Ok((dir, file)) => pv_dir.join("objects").join(dir).join(file).exists(),
+        Err(_) => false,
+    }
 }
 
 /// Hash the bytes of a blob the same way [`write_object`] would, without writing.
@@ -127,14 +134,23 @@ pub fn read_tree(pv_dir: &Path, hash: &str) -> Result<Vec<TreeEntry>> {
         if line.is_empty() {
             continue;
         }
-        let rest = line.strip_prefix("blob ").unwrap_or(line);
+        let rest = line
+            .strip_prefix("blob ")
+            .with_context(|| format!("unknown tree entry kind in line: {line:?}"))?;
         let (hash, path) = rest
             .split_once('\t')
             .context("malformed tree entry")?;
-        entries.push(TreeEntry {
+        let entry = TreeEntry {
             path: path.to_string(),
             hash: hash.to_string(),
-        });
+        };
+        // Defensive: validate every entry as we read it.
+        safe::validate_tree_path(&entry.path)
+            .with_context(|| format!("unsafe tree entry in tree {hash}"))?;
+        if !safe::is_valid_hash(&entry.hash) {
+            bail!("tree entry '{}' has invalid hash: {}", entry.path, entry.hash);
+        }
+        entries.push(entry);
     }
     Ok(entries)
 }
@@ -190,7 +206,9 @@ pub fn read_commit(pv_dir: &Path, hash: &str) -> Result<Commit> {
             } else if let Some(v) = line.strip_prefix("author ") {
                 author = Some(v.to_string());
             } else if let Some(v) = line.strip_prefix("timestamp ") {
-                timestamp = v.parse().unwrap_or(0);
+                timestamp = v.parse().with_context(|| {
+                    format!("invalid timestamp in commit {hash}: {v}")
+                })?;
             }
         } else {
             message_lines.push(line);

@@ -33,7 +33,7 @@ pub fn run(spec: &str, output: PathBuf) -> Result<()> {
     printer::ok(&format!(
         "Exported {} file(s) from {short} → {out}",
         entries.len(),
-        short = &hash[..7],
+        short = crate::core::safe::short_hash(&hash),
         out = output.display()
     ));
     Ok(())

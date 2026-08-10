@@ -16,12 +16,17 @@
 #![cfg(feature = "run")]
 
 use std::collections::HashMap;
+use std::time::Duration;
 
 use anyhow::{anyhow, bail, Context, Result};
 
+use crate::core::prompt_ref;
 use crate::core::repository::Repo;
 use crate::render::render;
 use crate::ui::printer;
+
+/// Default per-request timeout. Prevents the CLI from hanging forever.
+const HTTP_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Provider {
@@ -39,19 +44,30 @@ impl Provider {
             other => bail!("unknown provider '{other}' (expected openai|anthropic|ollama)"),
         }
     }
+
+    fn as_str(&self) -> &'static str {
+        match self {
+            Provider::OpenAI => "openai",
+            Provider::Anthropic => "anthropic",
+            Provider::Ollama => "ollama",
+        }
+    }
 }
 
 pub fn run(
     prompt: &str,
     provider_str: &str,
     model: Option<&str>,
+    max_tokens: Option<u32>,
     vars: Vec<(String, String)>,
     show_prompt: bool,
 ) -> Result<()> {
     let repo = Repo::find()?;
     let provider = Provider::parse(provider_str)?;
 
-    let template = load_template(&repo, prompt)?;
+    // Unified template loading (same resolution as `eval`/`ab`):
+    // path, HEAD:path, branch:path, tag:path, or hash.
+    let template = prompt_ref::load_prompt(&repo, prompt)?;
     let mut var_map: HashMap<String, String> = HashMap::new();
     for (k, v) in vars {
         var_map.insert(k, v);
@@ -60,19 +76,20 @@ pub fn run(
         .context("failed to render prompt template (undefined variable)")?;
 
     if show_prompt {
-        println!("{}", nu_ansi_term::Color::DarkGray.paint("--- rendered prompt ---"));
+        println!("{}", printer::dim("--- rendered prompt ---"));
         println!("{rendered}");
-        println!("{}", nu_ansi_term::Color::DarkGray.paint("--- end ---"));
+        println!("{}", printer::dim("--- end ---"));
     }
 
     // Explicit consent before any network call.
     printer::warn(&format!(
-        "About to send the rendered prompt to {provider:?}. Press Ctrl-C to abort."
+        "About to send the rendered prompt to provider '{}'.",
+        provider.as_str()
     ));
 
     let response = match provider {
-        Provider::OpenAI => call_openai(&rendered, model)?,
-        Provider::Anthropic => call_anthropic(&rendered, model)?,
+        Provider::OpenAI => call_openai(&rendered, model, max_tokens)?,
+        Provider::Anthropic => call_anthropic(&rendered, model, max_tokens)?,
         Provider::Ollama => call_ollama(&rendered, model)?,
     };
 
@@ -80,42 +97,31 @@ pub fn run(
     Ok(())
 }
 
-fn load_template(repo: &Repo, spec: &str) -> Result<String> {
-    // Reuse the same resolution logic as `eval`: path or HEAD:path.
-    if let Some(path) = spec.strip_prefix("HEAD:") {
-        let path = path.replace('\\', "/");
-        let Some(h) = repo.head_commit()? else {
-            bail!("no commits yet: cannot resolve HEAD:{path}");
-        };
-        let commit = crate::core::objects::read_commit(&repo.pv_dir, &h)?;
-        let entries = crate::core::objects::read_tree(&repo.pv_dir, &commit.tree)?;
-        let entry = entries
-            .iter()
-            .find(|e| e.path == path)
-            .with_context(|| format!("path not tracked at HEAD: {path}"))?;
-        let blob = crate::core::objects::read_object(&repo.pv_dir, &entry.hash)?;
-        return Ok(String::from_utf8_lossy(&blob.data).to_string());
-    }
-    let abs = repo.root.join(spec);
-    let data = std::fs::read_to_string(&abs)
-        .with_context(|| format!("cannot read prompt: {spec}"))?;
-    Ok(data)
+fn http_client() -> Result<reqwest::blocking::Client> {
+    reqwest::blocking::Client::builder()
+        .timeout(HTTP_TIMEOUT)
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .context("failed to build HTTP client")
 }
 
-fn call_openai(prompt: &str, model: Option<&str>) -> Result<String> {
+fn call_openai(prompt: &str, model: Option<&str>, max_tokens: Option<u32>) -> Result<String> {
     let key = std::env::var("OPENAI_API_KEY")
         .context("OPENAI_API_KEY is not set — refusing to call the API")?;
     let model = model.unwrap_or("gpt-4o-mini").to_string();
-    let url = std::env::var("OPENAI_BASE_URL")
-        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string())
-        + "/chat/completions";
+    let base = std::env::var("OPENAI_BASE_URL")
+        .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
+    let url = format!("{}/chat/completions", base.trim_end_matches('/'));
 
-    let body = serde_json::json!({
+    let mut body = serde_json::json!({
         "model": model,
         "messages": [{ "role": "user", "content": prompt }],
     });
+    if let Some(t) = max_tokens {
+        body["max_tokens"] = serde_json::json!(t);
+    }
 
-    let client = reqwest::blocking::Client::new();
+    let client = http_client()?;
     let resp = client
         .post(&url)
         .bearer_auth(&key)
@@ -134,7 +140,7 @@ fn call_openai(prompt: &str, model: Option<&str>) -> Result<String> {
     Ok(content.to_string())
 }
 
-fn call_anthropic(prompt: &str, model: Option<&str>) -> Result<String> {
+fn call_anthropic(prompt: &str, model: Option<&str>, max_tokens: Option<u32>) -> Result<String> {
     let key = std::env::var("ANTHROPIC_API_KEY")
         .context("ANTHROPIC_API_KEY is not set — refusing to call the API")?;
     let model = model.unwrap_or("claude-3-5-sonnet-latest").to_string();
@@ -142,11 +148,11 @@ fn call_anthropic(prompt: &str, model: Option<&str>) -> Result<String> {
 
     let body = serde_json::json!({
         "model": model,
-        "max_tokens": 1024,
+        "max_tokens": max_tokens.unwrap_or(1024),
         "messages": [{ "role": "user", "content": prompt }],
     });
 
-    let client = reqwest::blocking::Client::new();
+    let client = http_client()?;
     let resp = client
         .post(url)
         .header("x-api-key", &key)
@@ -170,7 +176,7 @@ fn call_ollama(prompt: &str, model: Option<&str>) -> Result<String> {
     let model = model.unwrap_or("llama3.2").to_string();
     let host = std::env::var("OLLAMA_HOST")
         .unwrap_or_else(|_| "http://localhost:11434".to_string());
-    let url = format!("{host}/api/generate");
+    let url = format!("{}/api/generate", host.trim_end_matches('/'));
 
     let body = serde_json::json!({
         "model": model,
@@ -178,7 +184,7 @@ fn call_ollama(prompt: &str, model: Option<&str>) -> Result<String> {
         "stream": false,
     });
 
-    let client = reqwest::blocking::Client::new();
+    let client = http_client()?;
     let resp = client
         .post(&url)
         .json(&body)

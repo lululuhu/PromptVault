@@ -1,12 +1,12 @@
 //! Staging area — a JSON file listing path → blob-hash pairs.
 
-use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::core::objects::TreeEntry;
+use crate::core::safe;
 
 #[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Index {
@@ -25,15 +25,23 @@ impl Index {
         if !path.exists() {
             return Ok(Index::default());
         }
-        let data = fs::read_to_string(&path)?;
-        serde_json::from_str(&data).context("failed to parse index.json")
+        let data = std::fs::read_to_string(&path)?;
+        let idx: Index = serde_json::from_str(&data).context("failed to parse index.json")?;
+        // Defensive: validate every entry. Drop nothing silently — surface errors.
+        for e in &idx.entries {
+            safe::validate_tree_path(&e.path)
+                .with_context(|| format!("index has unsafe path: {:?}", e.path))?;
+            if !safe::is_valid_hash(&e.hash) {
+                anyhow::bail!("index entry '{}' has invalid hash: {}", e.path, e.hash);
+            }
+        }
+        Ok(idx)
     }
 
     pub fn save(&self, pv_dir: &Path) -> Result<()> {
         let path = pv_dir.join("index.json");
         let data = serde_json::to_string_pretty(self)?;
-        fs::write(&path, data)?;
-        Ok(())
+        safe::atomic_write(&path, data.as_bytes())
     }
 
     pub fn add(&mut self, path: &str, hash: &str) {
@@ -70,3 +78,4 @@ impl Index {
             .collect()
     }
 }
+

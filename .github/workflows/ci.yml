@@ -28,12 +28,16 @@ jobs:
           set -e
           BIN="$PWD/target/debug/pv"
           mkdir -p /tmp/ci && cd /tmp/ci
-          "$BIN" init
+          # init with explicit path
+          "$BIN" init /tmp/ci
           printf 'You are a summarizer.\n\n{{text}}\n' > hello.md
           "$BIN" add .
           "$BIN" commit -m "ci: initial"
+          # Empty message and no-op commit should be rejected
+          if "$BIN" commit -m "" 2>/dev/null; then echo "FAIL: empty msg accepted"; exit 1; fi
+          if "$BIN" commit -m "noop" 2>/dev/null; then echo "FAIL: no-op commit accepted"; exit 1; fi
           "$BIN" tag v1
-          "$BIN" log
+          "$BIN" log -n 5
           "$BIN" list
           printf 'You are a precise summarizer.\n\n{{text}}\n' > hello.md
           "$BIN" diff
@@ -49,7 +53,7 @@ jobs:
           "$BIN" commit -m "ci: experiment variant"
           "$BIN" checkout main
           "$BIN" branch
-          # Revert by tag
+          # Revert by tag (tree is clean here)
           "$BIN" revert v1
           # Eval workflow
           printf '{"text":"hello world","expected":"summarizer"}\n{"text":"short"}\n' > cases.jsonl
@@ -83,7 +87,7 @@ jobs:
           "$BIN" remote add origin /tmp/bare.git
           "$BIN" push origin
           mkdir -p /tmp/ci2 && cd /tmp/ci2
-          "$BIN" init
+          "$BIN" init /tmp/ci2
           "$BIN" remote add origin /tmp/bare.git
           "$BIN" pull origin
           "$BIN" log

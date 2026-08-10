@@ -2,8 +2,11 @@
 //!
 //! Supports `{{name}}` and `{{ name }}` (whitespace-tolerant).
 //! In strict mode, an undefined variable is an error; otherwise it is left as-is.
+//!
+//! Works on `char` boundaries (UTF-8 safe), so Chinese / emoji / accented
+//! content is preserved exactly.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::{bail, Result};
 
@@ -12,48 +15,48 @@ use anyhow::{bail, Result};
 /// - `strict = true`:  any `{{var}}` not present in `vars` is an error.
 /// - `strict = false`: undefined `{{var}}` is left verbatim in the output.
 pub fn render(template: &str, vars: &HashMap<String, String>, strict: bool) -> Result<String> {
-    let bytes = template.as_bytes();
+    let chars: Vec<char> = template.chars().collect();
     let mut out = String::with_capacity(template.len());
     let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
+    while i < chars.len() {
+        if chars[i] == '{' && i + 1 < chars.len() && chars[i + 1] == '{' {
             // Find the closing }}.
-            if let Some(end) = find_close(&bytes[i + 2..]) {
-                let name_raw = &template[i + 2..i + 2 + end];
+            if let Some(end) = find_close(&chars[i + 2..]) {
+                let name_raw: String = chars[i + 2..i + 2 + end].iter().collect();
                 let name = name_raw.trim();
                 if name.is_empty() {
-                    bail!("empty variable name at position {i}");
+                    bail!("empty variable name at char {i}");
                 }
                 match vars.get(name) {
                     Some(v) => out.push_str(v),
                     None => {
                         if strict {
-                            bail!("undefined variable: {{{{{name}}}}}");
+                            bail!("undefined template variable: {name}");
                         }
                         out.push_str("{{");
-                        out.push_str(name_raw);
+                        out.push_str(&name_raw);
                         out.push_str("}}");
                     }
                 }
                 i += 2 + end + 2;
             } else {
                 // No closing }}: treat the rest as literal.
-                out.push_str(&template[i..]);
+                out.extend(&chars[i..]);
                 break;
             }
         } else {
-            out.push(bytes[i] as char);
+            out.push(chars[i]);
             i += 1;
         }
     }
     Ok(out)
 }
 
-/// Find the index of `}}` starting from `bytes`.
-fn find_close(bytes: &[u8]) -> Option<usize> {
+/// Find the index of `}}` starting from `chars`.
+fn find_close(chars: &[char]) -> Option<usize> {
     let mut i = 0;
-    while i + 1 < bytes.len() {
-        if bytes[i] == b'}' && bytes[i + 1] == b'}' {
+    while i + 1 < chars.len() {
+        if chars[i] == '}' && chars[i + 1] == '}' {
             return Some(i);
         }
         i += 1;
@@ -61,17 +64,19 @@ fn find_close(bytes: &[u8]) -> Option<usize> {
     None
 }
 
-/// Extract the set of `{{var}}` names referenced in a template.
+/// Extract the set of `{{var}}` names referenced in a template (deduped, order-preserving).
 #[allow(dead_code)]
 pub fn extract_vars(template: &str) -> Vec<String> {
+    let chars: Vec<char> = template.chars().collect();
     let mut names = Vec::new();
-    let bytes = template.as_bytes();
+    let mut seen: HashSet<String> = HashSet::new();
     let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' && i + 1 < bytes.len() && bytes[i + 1] == b'{' {
-            if let Some(end) = find_close(&bytes[i + 2..]) {
-                let name = template[i + 2..i + 2 + end].trim().to_string();
-                if !name.is_empty() && !names.contains(&name) {
+    while i < chars.len() {
+        if chars[i] == '{' && i + 1 < chars.len() && chars[i + 1] == '{' {
+            if let Some(end) = find_close(&chars[i + 2..]) {
+                let name: String = chars[i + 2..i + 2 + end].iter().collect();
+                let name = name.trim().to_string();
+                if !name.is_empty() && seen.insert(name.clone()) {
                     names.push(name);
                 }
                 i += 2 + end + 2;
@@ -133,5 +138,26 @@ mod tests {
         let t = "{{a}} and {{b}} and {{a}}";
         let names = extract_vars(t);
         assert_eq!(names, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn preserves_unicode() {
+        let t = "你是 {{role}}，请总结：{{text}}";
+        let v = vars(&[("role", "助手"), ("text", "你好世界")]);
+        assert_eq!(render(t, &v, false).unwrap(), "你是 助手，请总结：你好世界");
+    }
+
+    #[test]
+    fn preserves_emoji() {
+        let t = "{{emoji}} rocket";
+        let v = vars(&[("emoji", "🚀")]);
+        assert_eq!(render(t, &v, false).unwrap(), "🚀 rocket");
+    }
+
+    #[test]
+    fn preserves_accented() {
+        let t = "Café {{name}}";
+        let v = vars(&[("name", "Résumé")]);
+        assert_eq!(render(t, &v, false).unwrap(), "Café Résumé");
     }
 }

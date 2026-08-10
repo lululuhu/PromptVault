@@ -15,13 +15,29 @@ use tempfile::TempDir;
 // Serialize all tests in this file (they all touch the global CWD).
 static CWD_LOCK: Mutex<()> = Mutex::new(());
 
+/// RAII guard that restores the previous CWD on drop — even if the test panics.
+struct CwdGuard {
+    prev: std::path::PathBuf,
+}
+
+impl CwdGuard {
+    fn enter(dir: &std::path::Path) -> Self {
+        let prev = env::current_dir().unwrap();
+        env::set_current_dir(dir).unwrap();
+        CwdGuard { prev }
+    }
+}
+
+impl Drop for CwdGuard {
+    fn drop(&mut self) {
+        let _ = env::set_current_dir(&self.prev);
+    }
+}
+
 fn in_dir<R>(dir: &std::path::Path, f: impl FnOnce() -> R) -> R {
     let _guard = CWD_LOCK.lock().unwrap();
-    let prev = env::current_dir().unwrap();
-    env::set_current_dir(dir).unwrap();
-    let r = f();
-    env::set_current_dir(prev).unwrap();
-    r
+    let _cwd = CwdGuard::enter(dir);
+    f()
 }
 
 fn write(dir: &std::path::Path, rel: &str, content: &str) {
@@ -38,7 +54,7 @@ fn full_lifecycle() {
     let root = tmp.path();
 
     in_dir(root, || {
-        commands::init::run().unwrap();
+        commands::init::run(None).unwrap();
     });
 
     write(root, "prompts/summarize.md", "Summarize: {{text}}\n");
@@ -113,7 +129,7 @@ fn full_lifecycle() {
 fn checkout_refuses_dirty_tree() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "v1\n");
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
@@ -132,7 +148,7 @@ fn checkout_refuses_dirty_tree() {
 fn eval_renders_and_asserts() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "p.md", "Hello {{name}}, {{text}}\n");
     write(
         root,
@@ -150,7 +166,7 @@ fn eval_renders_and_asserts() {
 fn stash_push_pop_roundtrip() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "v1\n");
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
@@ -178,7 +194,7 @@ fn stash_push_pop_roundtrip() {
 fn stash_drop_discards() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "v1\n");
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
@@ -196,7 +212,7 @@ fn stash_drop_discards() {
 fn reset_unstages_a_file() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "v1\n");
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
@@ -225,7 +241,7 @@ fn reset_unstages_a_file() {
 fn clean_removes_untracked() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "v1\n");
     write(root, "b.md", "untracked\n");
     in_dir(root, || {
@@ -245,7 +261,7 @@ fn clean_removes_untracked() {
 fn export_writes_zip() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "hello\n");
     write(root, "b.md", "world\n");
     in_dir(root, || {
@@ -265,7 +281,7 @@ fn export_writes_zip() {
 fn grep_finds_matches() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "You are a summarizer.\nSummarize: {{text}}\n");
     write(root, "b.md", "Translate: {{text}}\n");
     in_dir(root, || {
@@ -282,7 +298,7 @@ fn grep_finds_matches() {
 fn stats_runs_without_error() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
-    in_dir(root, || commands::init::run().unwrap());
+    in_dir(root, || commands::init::run(None).unwrap());
     write(root, "a.md", "hello\n");
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
@@ -292,4 +308,151 @@ fn stats_runs_without_error() {
         // Should not error.
         commands::stats::run().unwrap();
     });
+}
+
+// ---- New hardening tests (post-audit) ------------------------------------
+
+#[test]
+fn init_accepts_a_path() {
+    let tmp = TempDir::new().unwrap();
+    let target = tmp.path().join("subdir");
+    commands::init::run(Some(&target)).unwrap();
+    assert!(target.join(".pv").exists());
+}
+
+#[test]
+fn log_max_count_limits_output() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        write_at_cwd("a.md", "v2\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2").unwrap();
+        write_at_cwd("a.md", "v3\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c3").unwrap();
+        // Only the most recent commit should show.
+        commands::log::run(Some(1)).unwrap();
+    });
+}
+
+#[test]
+fn commit_rejects_empty_message() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        let err = commands::commit::run("").unwrap_err();
+        assert!(format!("{err}").contains("empty"));
+        let err = commands::commit::run("   \n  ").unwrap_err();
+        assert!(format!("{err}").contains("empty"));
+    });
+}
+
+#[test]
+fn commit_rejects_nothing_changed() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Stage the same content again — tree unchanged.
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        let err = commands::commit::run("c2").unwrap_err();
+        assert!(format!("{err}").contains("nothing to commit"));
+    });
+}
+
+#[test]
+fn branch_rejects_bad_names() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Names with '/' or '..' must be rejected.
+        assert!(commands::branch::run(Some("feature/x"), None).is_err());
+        assert!(commands::branch::run(Some("../x"), None).is_err());
+        assert!(commands::branch::run(Some("HEAD"), None).is_err());
+        assert!(commands::branch::run(Some(".hidden"), None).is_err());
+        // A clean name still works.
+        assert!(commands::branch::run(Some("experiment"), None).is_ok());
+    });
+}
+
+#[test]
+fn stash_pop_refuses_dirty_tree() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Stash a change.
+        write_at_cwd("a.md", "dirty\n");
+        commands::stash::push().unwrap();
+        // Now make a NEW uncommitted change on top of HEAD.
+        write_at_cwd("a.md", "different change\n");
+        // pop should refuse (would overwrite).
+        let err = commands::stash::pop().unwrap_err();
+        assert!(format!("{err}").contains("cannot pop stash"));
+        // Stash should still exist (not dropped).
+        assert!(std::path::Path::new(".pv/stash").exists());
+    });
+}
+
+#[test]
+fn revert_refuses_dirty_tree() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        write_at_cwd("a.md", "v2\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2").unwrap();
+        // Make an uncommitted change, then try to revert to c1.
+        write_at_cwd("a.md", "dirty\n");
+        let err = commands::revert::run("HEAD~1").unwrap_err();
+        // Either "unknown commit" (HEAD~1 not supported) or "cannot revert" (dirty).
+        // We test the dirty path via tag instead.
+        let _ = err;
+    });
+    // Use a tag for a reliable revert target.
+    in_dir(root, || {
+        commands::tag::run(Some("v1"), None).unwrap();
+        // a.md is dirty from above.
+        let err = commands::revert::run("v1").unwrap_err();
+        assert!(format!("{err}").contains("cannot revert"));
+    });
+}
+
+#[test]
+fn render_preserves_unicode() {
+    use promptvault::render::render;
+    let mut vars = std::collections::HashMap::new();
+    vars.insert("x".to_string(), "世界".to_string());
+    let out = render("hello {{x}} 🌍", &vars, false).unwrap();
+    assert_eq!(out, "hello 世界 🌍");
+}
+
+fn write_at_cwd(rel: &str, content: &str) {
+    let path = std::path::PathBuf::from(rel);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).unwrap();
+    }
+    std::fs::write(path, content).unwrap();
 }

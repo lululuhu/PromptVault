@@ -29,7 +29,7 @@ pub fn run() -> Result<()> {
 
     for e in entries {
         let status = working_status(&repo, &e.path, &e.hash);
-        println!("{}  {}  {}", &e.hash[..7], pad(&e.path, longest), status);
+        println!("{}  {}  {}", crate::core::safe::short_hash(&e.hash), pad(&e.path, longest), status);
     }
     Ok(())
 }
