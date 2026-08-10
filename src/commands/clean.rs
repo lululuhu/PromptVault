@@ -17,6 +17,7 @@ pub fn run(dry_run: bool, force: bool) -> Result<()> {
     }
 
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let idx = repo.index()?;
     let head_entries = head_tree_entries(&repo)?;
 
@@ -31,13 +32,34 @@ pub fn run(dry_run: bool, force: bool) -> Result<()> {
     }
 
     let action = if dry_run { "would remove" } else { "removing" };
+    let mut parent_dirs: std::collections::HashSet<std::path::PathBuf> = std::collections::HashSet::new();
     for p in &untracked {
         println!("{}  {}", printer::dim(action), p);
         if !dry_run {
             let abs = repo.root.join(p);
             let _ = std::fs::remove_file(&abs);
+            // Collect parent dirs that might become empty (up to repo root).
+            let mut cur = abs.parent();
+            while let Some(dir) = cur {
+                if dir == repo.root {
+                    break;
+                }
+                parent_dirs.insert(dir.to_path_buf());
+                cur = dir.parent();
+            }
         }
     }
+
+    // Remove now-empty directories (deepest first so parents can also be removed).
+    let mut dirs: Vec<_> = parent_dirs.into_iter().collect();
+    dirs.sort_by(|a, b| b.cmp(a)); // deepest first
+    for dir in &dirs {
+        // remove_dir only succeeds if the directory is empty.
+        if std::fs::remove_dir(dir).is_ok() {
+            println!("{}  {}", printer::dim("removed dir"), dir.strip_prefix(&repo.root).unwrap_or(dir).display());
+        }
+    }
+
     printer::ok(&format!("{} file(s) {}", untracked.len(), if dry_run { "previewed" } else { "removed" }));
     Ok(())
 }

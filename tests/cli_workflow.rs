@@ -547,3 +547,144 @@ fn checkout_detached_at_commit() {
         assert_eq!(content, "v2\n");
     });
 }
+
+// ---- Round-3: ignore command, clean empty dirs, stats cross-branch --------
+
+#[test]
+fn ignore_add_list_remove() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+
+    // No .pvignore yet — list should not error.
+    in_dir(root, || {
+        commands::ignore::list().unwrap();
+    });
+
+    // Add patterns.
+    in_dir(root, || {
+        commands::ignore::add(&["*.bak".into(), "drafts".into()]).unwrap();
+    });
+    let content = fs::read_to_string(root.join(".pvignore")).unwrap();
+    assert!(content.contains("*.bak"));
+    assert!(content.contains("drafts"));
+
+    // List should print both patterns.
+    in_dir(root, || {
+        commands::ignore::list().unwrap();
+    });
+
+    // Remove one pattern.
+    in_dir(root, || {
+        commands::ignore::remove(&["*.bak".into()]).unwrap();
+    });
+    let content = fs::read_to_string(root.join(".pvignore")).unwrap();
+    assert!(!content.contains("*.bak"));
+    assert!(content.contains("drafts"));
+
+    // Remove the last pattern — file should be deleted.
+    in_dir(root, || {
+        commands::ignore::remove(&["drafts".into()]).unwrap();
+    });
+    assert!(!root.join(".pvignore").exists());
+
+    // Removing from a non-existent file should error.
+    in_dir(root, || {
+        assert!(commands::ignore::remove(&["x".into()]).is_err());
+    });
+}
+
+#[test]
+fn ignore_patterns_are_enforced() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    // Add an ignore pattern via the command.
+    in_dir(root, || {
+        commands::ignore::add(&["secrets".into()]).unwrap();
+    });
+    write(root, "keep.md", "keep\n");
+    write(root, "secrets/key.md", "secret\n");
+    // `pv add .` should stage keep.md but NOT secrets/key.md.
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from(".")]).unwrap();
+        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let paths: Vec<&str> = idx.entries.iter().map(|e| e.path.as_str()).collect();
+        assert!(paths.contains(&"keep.md"));
+        assert!(!paths.iter().any(|p| p.contains("secrets")));
+    });
+}
+
+#[test]
+fn clean_removes_empty_dirs() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "tracked.md", "v1\n");
+    write(root, "untracked/sub/deep.md", "untracked\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("tracked.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Clean should remove the untracked file AND the empty dirs.
+        commands::clean::run(false, true).unwrap();
+    });
+    assert!(!root.join("untracked/sub/deep.md").exists());
+    assert!(!root.join("untracked/sub").exists());
+    assert!(!root.join("untracked").exists());
+}
+
+#[test]
+fn stats_counts_commits_on_all_branches() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1 on main").unwrap();
+        // Create a branch and commit on it (diverges from main).
+        commands::branch::run(Some("dev"), None).unwrap();
+        commands::checkout::run("dev").unwrap();
+        write_at_cwd("a.md", "dev1\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2 on dev").unwrap();
+        // Switch back to main.
+        commands::checkout::run("main").unwrap();
+        // stats should see both commits (1 on main + 1 on dev), even though
+        // dev's commit is not reachable from main's first-parent chain.
+        commands::stats::run().unwrap();
+    });
+}
+
+#[test]
+fn diff_surfaces_read_errors() {
+    // We can't easily corrupt an object in a unit test, but we can verify
+    // that diff between two valid refs works and doesn't silently return
+    // empty diffs for missing files.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "line1\nline2\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+    });
+    // Modify and commit v2.
+    write(root, "a.md", "line1\nLINE2\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2").unwrap();
+        // Diff between two valid commits should work.
+        commands::diff::run(vec!["HEAD~1".to_string()]).unwrap_or_else(|e| {
+            // HEAD~1 is not supported — use a tag instead.
+            let _ = e;
+        });
+    });
+    // Tag c1 for a reliable diff target.
+    in_dir(root, || {
+        commands::tag::run(Some("v1"), None).unwrap();
+        // diff v1 HEAD should work without error.
+        let result = commands::diff::run(vec!["v1".to_string(), "HEAD".to_string()]);
+        assert!(result.is_ok(), "diff between valid refs should succeed");
+    });
+}

@@ -9,6 +9,7 @@ use crate::ui::printer;
 
 pub fn run(message: &str) -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
 
     // Reject empty commit messages.
     let message = message.trim();

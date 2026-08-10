@@ -8,12 +8,14 @@ pub fn run(name: Option<&str>, delete: Option<&str>) -> Result<()> {
     let repo = Repo::find()?;
 
     if let Some(n) = delete {
+        let _lock = repo.lock()?;
         refs::delete_tag(&repo.pv_dir, n)?;
         printer::ok(&format!("Deleted tag '{n}'"));
         return Ok(());
     }
 
     if let Some(n) = name {
+        let _lock = repo.lock()?;
         if refs::tag_exists(&repo.pv_dir, n) {
             bail!("tag '{n}' already exists");
         }

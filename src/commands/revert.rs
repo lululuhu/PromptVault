@@ -14,6 +14,7 @@ use crate::ui::printer;
 /// Refuses to run if the working tree has uncommitted changes (would overwrite them).
 pub fn run(commit_spec: &str) -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let hash = resolve_commit(&repo, commit_spec)?
         .ok_or_else(|| anyhow::anyhow!("unknown commit: {commit_spec}"))?;
 

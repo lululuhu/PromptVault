@@ -2,6 +2,7 @@ pub mod config;
 pub mod hash;
 pub mod index;
 pub mod ignore;
+pub mod lock;
 pub mod objects;
 pub mod prompt_ref;
 pub mod refs;

@@ -8,7 +8,6 @@
 //!   - atomic file writes (write temp → rename, crash-safe)
 //!   - working-tree cleanliness check (reused by checkout / stash pop / revert)
 
-use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -171,21 +170,6 @@ pub fn check_clean_working_tree(repo: &Repo) -> Result<()> {
         );
     }
     Ok(())
-}
-
-/// Collect every reachable commit hash from HEAD's first-parent chain.
-/// (For stats; full reachability is a future improvement.)
-pub fn collect_commits_from_head(repo: &Repo) -> Result<HashSet<String>> {
-    let mut seen = HashSet::new();
-    let mut cur = repo.head_commit()?;
-    while let Some(h) = cur {
-        if !seen.insert(h.clone()) {
-            break;
-        }
-        let commit = objects::read_commit(&repo.pv_dir, &h)?;
-        cur = commit.parent;
-    }
-    Ok(seen)
 }
 
 fn head_tree_entries(repo: &Repo) -> Result<Vec<TreeEntry>> {

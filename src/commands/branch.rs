@@ -9,6 +9,7 @@ pub fn run(name: Option<&str>, delete: Option<&str>) -> Result<()> {
 
     // Delete mode.
     if let Some(n) = delete {
+        let _lock = repo.lock()?;
         let cur = repo.current_branch()?;
         if cur.as_deref() == Some(n) {
             bail!("cannot delete the currently checked out branch '{n}'");
@@ -20,6 +21,7 @@ pub fn run(name: Option<&str>, delete: Option<&str>) -> Result<()> {
 
     // Create mode.
     if let Some(n) = name {
+        let _lock = repo.lock()?;
         if refs::branch_exists(&repo.pv_dir, n) {
             bail!("branch '{n}' already exists");
         }

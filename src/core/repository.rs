@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Result};
 
-use crate::core::{index, refs};
+use crate::core::{index, lock, refs};
 
 pub struct Repo {
     pub root: PathBuf,
@@ -36,6 +36,15 @@ impl Repo {
 
     pub fn save_index(&self, idx: &index::Index) -> Result<()> {
         idx.save(&self.pv_dir)
+    }
+
+    /// Acquire an exclusive repository lock. Drop the guard to release.
+    ///
+    /// Call this at the start of any command that mutates shared state
+    /// (index, refs, HEAD) to prevent concurrent writes from corrupting
+    /// the vault.
+    pub fn lock(&self) -> Result<lock::FileLock> {
+        lock::FileLock::acquire(&self.pv_dir)
     }
 
     pub fn head_commit(&self) -> Result<Option<String>> {

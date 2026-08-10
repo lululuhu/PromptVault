@@ -20,14 +20,40 @@ pub fn run(spec: &str, output: PathBuf) -> Result<()> {
     let commit = objects::read_commit(&repo.pv_dir, &hash)?;
     let entries = objects::read_tree(&repo.pv_dir, &commit.tree)?;
 
-    // Build a minimal ZIP file by hand (no extra dependency needed).
-    // We use the "stored" (no compression) method for simplicity and zero deps.
+    // ZIP format limits (without ZIP64 extensions, which we don't implement):
+    //   - max 65,535 entries (u16)
+    //   - max 4 GB per file and total archive (u32 offsets/sizes)
+    const MAX_ENTRIES: usize = 65_535;
+    const MAX_FILE_SIZE: usize = u32::MAX as usize; // ~4 GiB
+
+    if entries.len() > MAX_ENTRIES {
+        anyhow::bail!(
+            "too many files to export: {} (ZIP limit is {MAX_ENTRIES}); \
+             consider exporting fewer prompts",
+            entries.len()
+        );
+    }
+
     let mut zip = ZipBuilder::new();
     for e in &entries {
         let blob = objects::read_object(&repo.pv_dir, &e.hash)?;
-        zip.add_file(&e.path, &blob.data);
+        if blob.data.len() > MAX_FILE_SIZE {
+            anyhow::bail!(
+                "file too large for ZIP format: {} is {} bytes (limit is ~4 GiB)",
+                e.path,
+                blob.data.len()
+            );
+        }
+        zip.add_file(&e.path, &blob.data)?;
     }
-    let bytes = zip.finish();
+    let bytes = zip.finish()?;
+    if bytes.len() > MAX_FILE_SIZE {
+        anyhow::bail!(
+            "resulting ZIP would exceed the 4 GiB format limit ({} bytes); \
+             export fewer or smaller prompts",
+            bytes.len()
+        );
+    }
     fs::write(&output, &bytes)?;
 
     printer::ok(&format!(
@@ -71,9 +97,13 @@ impl ZipBuilder {
         Self { data: Vec::new(), entries: Vec::new() }
     }
 
-    fn add_file(&mut self, name: &str, content: &[u8]) {
+    fn add_file(&mut self, name: &str, content: &[u8]) -> Result<()> {
         let crc = crc32(content);
-        let offset = self.data.len() as u32;
+        let offset = self.data.len();
+        if offset > u32::MAX as usize {
+            anyhow::bail!("ZIP offset overflow: archive exceeds 4 GiB limit");
+        }
+        let offset = offset as u32;
         let size = content.len() as u32;
 
         // Local file header
@@ -97,10 +127,15 @@ impl ZipBuilder {
             crc32: crc,
             size,
         });
+        Ok(())
     }
 
-    fn finish(mut self) -> Vec<u8> {
-        let central_start = self.data.len() as u32;
+    fn finish(mut self) -> Result<Vec<u8>> {
+        let central_start = self.data.len();
+        if central_start > u32::MAX as usize {
+            anyhow::bail!("ZIP central directory offset exceeds 4 GiB limit");
+        }
+        let central_start = central_start as u32;
         for e in &self.entries {
             // Central directory file header
             self.data.extend_from_slice(&[0x50, 0x4b, 0x01, 0x02]); // signature
@@ -122,7 +157,7 @@ impl ZipBuilder {
             self.data.extend_from_slice(&e.offset.to_le_bytes()); // local header offset
             self.data.extend_from_slice(e.name.as_bytes());
         }
-        let central_size = (self.data.len() as u32) - central_start;
+        let central_size = (self.data.len() as u32).saturating_sub(central_start);
 
         // End of central directory record
         self.data.extend_from_slice(&[0x50, 0x4b, 0x05, 0x06]); // signature
@@ -134,7 +169,7 @@ impl ZipBuilder {
         self.data.extend_from_slice(&central_start.to_le_bytes());
         self.data.extend_from_slice(&0u16.to_le_bytes()); // comment length
 
-        self.data
+        Ok(self.data)
     }
 }
 

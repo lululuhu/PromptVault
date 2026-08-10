@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use nu_ansi_term::Color;
 
 use crate::core::objects::{self, TreeEntry};
@@ -75,8 +75,8 @@ fn diff_refs(repo: &Repo, a_spec: &str, b_spec: &str) -> Result<()> {
         if ah == bh {
             continue;
         }
-        let old_lines = blob_lines(repo, ah);
-        let new_lines = blob_lines(repo, bh);
+        let old_lines = blob_lines(repo, ah)?;
+        let new_lines = blob_lines(repo, bh)?;
         println!(
             "{}",
             printer::bold(&format!("diff -- {a_spec}:{p} {b_spec}:{p}"))
@@ -91,22 +91,27 @@ fn diff_refs(repo: &Repo, a_spec: &str, b_spec: &str) -> Result<()> {
     Ok(())
 }
 
-fn blob_lines(repo: &Repo, hash: Option<&String>) -> Vec<String> {
+fn blob_lines(repo: &Repo, hash: Option<&String>) -> Result<Vec<String>> {
     match hash {
         Some(h) => {
-            let obj = match objects::read_object(&repo.pv_dir, h) {
-                Ok(o) => o,
-                Err(_) => return Vec::new(),
-            };
-            split_lines(&String::from_utf8_lossy(&obj.data))
+            let obj = objects::read_object(&repo.pv_dir, h)
+                .with_context(|| format!("failed to read blob {h} for diff"))?;
+            Ok(split_lines(&String::from_utf8_lossy(&obj.data)))
         }
-        None => Vec::new(),
+        None => Ok(Vec::new()),
     }
 }
 
 fn print_diff_blob_vs_worktree(repo: &Repo, rel: &str, old_hash: Option<&str>) -> Result<bool> {
     let abs = repo.root.join(rel);
-    let new_data = std::fs::read_to_string(&abs).unwrap_or_default();
+    // A missing file (deleted from working tree) is a legitimate diff state —
+    // treat it as empty. Other read errors (permission denied, etc.) are real
+    // and must be surfaced, not silently swallowed.
+    let new_data = match std::fs::read_to_string(&abs) {
+        Ok(d) => d,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(e) => return Err(e).context(format!("failed to read {rel} from working tree")),
+    };
     let new_lines = split_lines(&new_data);
 
     let old_lines = if let Some(h) = old_hash {

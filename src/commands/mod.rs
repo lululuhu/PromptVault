@@ -11,6 +11,7 @@ pub mod diff;
 pub mod eval;
 pub mod export;
 pub mod grep;
+pub mod ignore;
 pub mod init;
 pub mod list;
 pub mod log;

@@ -24,6 +24,7 @@ struct Stash {
 
 pub fn push() -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let stash_path = repo.pv_dir.join(STASH_FILE);
     if stash_path.exists() {
         bail!("a stash already exists; run `pv stash pop` or `pv stash drop` first");
@@ -83,6 +84,7 @@ pub fn push() -> Result<()> {
 
 pub fn pop() -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let stash_path = repo.pv_dir.join(STASH_FILE);
     if !stash_path.exists() {
         bail!("no stash to pop");
@@ -120,6 +122,7 @@ pub fn pop() -> Result<()> {
 
 pub fn drop() -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let stash_path = repo.pv_dir.join(STASH_FILE);
     if !stash_path.exists() {
         bail!("no stash to drop");

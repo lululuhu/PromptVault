@@ -16,6 +16,7 @@ use crate::ui::printer;
 ///   (working tree is restored to that commit's tree).
 pub fn run(target: &str) -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
 
     // Branch switch path.
     if refs::branch_exists(&repo.pv_dir, target) {

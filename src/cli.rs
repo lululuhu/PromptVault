@@ -253,6 +253,30 @@ pub enum Command {
     /// Get / set repository configuration (author, etc.)
     #[command(subcommand)]
     Config(ConfigCommand),
+
+    /// Manage `.pvignore` patterns (add / list / remove)
+    #[command(subcommand)]
+    Ignore(IgnoreCommand),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum IgnoreCommand {
+    /// Add one or more patterns to `.pvignore`
+    Add {
+        /// Patterns to add (one per arg)
+        #[arg(required = true)]
+        patterns: Vec<String>,
+    },
+    /// List all active ignore patterns
+    #[command(alias = "ls")]
+    List,
+    /// Remove one or more patterns from `.pvignore`
+    #[command(alias = "rm")]
+    Remove {
+        /// Patterns to remove (exact match)
+        #[arg(required = true)]
+        patterns: Vec<String>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

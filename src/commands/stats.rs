@@ -12,20 +12,21 @@ use crate::ui::printer;
 pub fn run() -> Result<()> {
     let repo = Repo::find()?;
 
-    let mut commits = 0usize;
     let mut blobs: HashSet<String> = HashSet::new();
     let mut trees: HashSet<String> = HashSet::new();
     let mut total_blob_bytes = 0usize;
 
-    // Walk commit history from HEAD.
-    let mut cur = repo.head_commit()?;
-    while let Some(hash) = cur {
-        let commit = objects::read_commit(&repo.pv_dir, &hash)?;
-        commits += 1;
+    // Collect all reachable commits from every branch tip and tag — not just
+    // HEAD's first-parent chain. This ensures commits on other branches are
+    // counted too.
+    let all_commits = collect_all_commits(&repo)?;
+
+    for hash in &all_commits {
+        let commit = objects::read_commit(&repo.pv_dir, hash)?;
         walk_tree(&repo, &commit.tree, &mut blobs, &mut trees, &mut total_blob_bytes)?;
-        cur = commit.parent;
     }
 
+    let commits = all_commits.len();
     let branches = refs::list_branches(&repo.pv_dir)?.len();
     let tags = refs::list_tags(&repo.pv_dir)?.len();
 
@@ -94,4 +95,41 @@ fn human_bytes(n: f64) -> String {
     } else {
         format!("{} B", n as u64)
     }
+}
+
+/// Walk all branch tips and tags, following every commit's parent chain,
+/// collecting every reachable commit hash. This ensures commits on branches
+/// that are not reachable from HEAD are counted too.
+fn collect_all_commits(repo: &Repo) -> Result<HashSet<String>> {
+    let mut seen: HashSet<String> = HashSet::new();
+    let mut queue: Vec<String> = Vec::new();
+
+    // Seed with HEAD.
+    if let Some(h) = repo.head_commit()? {
+        queue.push(h);
+    }
+    // Seed with every branch tip.
+    for name in refs::list_branches(&repo.pv_dir)? {
+        if let Some(h) = refs::resolve_branch(&repo.pv_dir, &name)? {
+            queue.push(h);
+        }
+    }
+    // Seed with every tag.
+    for name in refs::list_tags(&repo.pv_dir)? {
+        if let Some(h) = refs::resolve_tag(&repo.pv_dir, &name)? {
+            queue.push(h);
+        }
+    }
+
+    while let Some(hash) = queue.pop() {
+        if !seen.insert(hash.clone()) {
+            continue; // already visited
+        }
+        let commit = objects::read_commit(&repo.pv_dir, &hash)?;
+        if let Some(p) = commit.parent {
+            queue.push(p);
+        }
+    }
+
+    Ok(seen)
 }

@@ -32,6 +32,7 @@ pub fn set(key: &str, value: &str) -> Result<()> {
         bail!("config value cannot contain newlines");
     }
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let mut map = read_config_map(&repo.pv_dir)?;
     map.insert(key.to_string(), value.to_string());
 

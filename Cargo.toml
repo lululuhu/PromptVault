@@ -30,6 +30,9 @@ nu-ansi-term = "0.50"
 ratatui = "0.28"
 crossterm = "0.28"
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [features]
 default = []
 # Enable `pv run` — model calls over HTTP. Off by default so the default build

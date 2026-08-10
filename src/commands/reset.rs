@@ -12,6 +12,7 @@ use crate::ui::printer;
 
 pub fn run(paths: Vec<PathBuf>) -> Result<()> {
     let repo = Repo::find()?;
+    let _lock = repo.lock()?;
     let mut idx = repo.index()?;
 
     if paths.is_empty() {

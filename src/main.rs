@@ -82,5 +82,12 @@ fn run() -> anyhow::Result<()> {
             }
             promptvault::cli::ConfigCommand::List => commands::config::list(),
         },
+        Command::Ignore(cmd) => match cmd {
+            promptvault::cli::IgnoreCommand::Add { patterns } => commands::ignore::add(&patterns),
+            promptvault::cli::IgnoreCommand::List => commands::ignore::list(),
+            promptvault::cli::IgnoreCommand::Remove { patterns } => {
+                commands::ignore::remove(&patterns)
+            }
+        },
     }
 }
