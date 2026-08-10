@@ -23,6 +23,34 @@ pub fn is_valid_hash(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// Directory names that should always be skipped during filesystem walks.
+/// These are well-known build caches, VCS dirs, dependency folders, etc.
+const SKIP_DIRS: &[&str] = &[
+    ".pv",
+    ".git",
+    ".hg",
+    ".svn",
+    "target",
+    "node_modules",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    "out",
+    "bin",
+    "obj",
+    ".idea",
+    ".vscode",
+];
+
+/// True if `name` is a directory that should never be recursed into.
+pub fn is_skip_dir(name: &str) -> bool {
+    SKIP_DIRS.contains(&name)
+}
+
 /// Return a 7-char short hash, or the full hash if shorter than 7.
 /// Never panics.
 pub fn short_hash(hash: &str) -> &str {
@@ -166,6 +194,35 @@ fn head_tree_entries(repo: &Repo) -> Result<Vec<TreeEntry>> {
     };
     let commit = objects::read_commit(&repo.pv_dir, &h)?;
     Ok(objects::read_tree(&repo.pv_dir, &commit.tree)?)
+}
+
+/// Resolve a short hash prefix to a full hash, scanning `.pv/objects/`.
+/// Returns:
+///   - `Ok(Some(hash))` if exactly one match
+///   - `Ok(None)` if no match
+///   - `Err` if the prefix is ambiguous (matches 2+ objects)
+pub fn resolve_hash_prefix(objects_dir: &Path, prefix: &str) -> Result<Option<String>> {
+    if prefix.len() < 4 || !prefix.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Ok(None);
+    }
+    let (dir_part, file_prefix) = prefix.split_at(2);
+    let dir_path = objects_dir.join(dir_part);
+    if !dir_path.exists() {
+        return Ok(None);
+    }
+    let mut matches = Vec::new();
+    for entry in fs::read_dir(&dir_path)? {
+        let entry = entry?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with(file_prefix) {
+            matches.push(format!("{dir_part}{name}"));
+        }
+    }
+    match matches.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matches.into_iter().next().unwrap())),
+        n => bail!("ambiguous hash prefix '{prefix}': matches {n} objects"),
+    }
 }
 
 #[cfg(test)]

@@ -1,10 +1,12 @@
 pub mod ab;
 pub mod add;
+pub mod blame;
 pub mod branch;
 pub mod cat;
 pub mod checkout;
 pub mod clean;
 pub mod commit;
+pub mod config;
 pub mod diff;
 pub mod eval;
 pub mod export;

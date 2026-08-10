@@ -95,29 +95,38 @@ fn matches_pattern(p: &Pattern, path_segs: &[&str]) -> bool {
 }
 
 /// Glob match with `*` (matches any run of non-`/` chars). No `?` or `**`.
+///
+/// Implemented as an iterative DP over (pattern_pos, text_pos) so that pathological
+/// patterns like `*a*a*a*a*` over long strings stay O(P*T) instead of going
+/// exponential.
 fn glob_match(pattern: &str, text: &str) -> bool {
     let p: Vec<char> = pattern.chars().collect();
     let t: Vec<char> = text.chars().collect();
-    glob_rec(&p, 0, &t, 0)
-}
+    let pn = p.len();
+    let tn = t.len();
 
-fn glob_rec(p: &[char], pi: usize, t: &[char], ti: usize) -> bool {
-    if pi == p.len() {
-        return ti == t.len();
-    }
-    if p[pi] == '*' {
-        // Try zero or more characters.
-        for skip in ti..=t.len() {
-            if glob_rec(p, pi + 1, t, skip) {
-                return true;
+    // dp[i][j] = does p[i..] match t[j..]?
+    // Computed bottom-up so each cell is filled exactly once.
+    let mut dp = vec![vec![false; tn + 1]; pn + 1];
+    dp[pn][tn] = true; // empty pattern matches empty text
+
+    // dp[pn][j>0] = false (empty pattern can't match non-empty text)
+
+    for i in (0..pn).rev() {
+        // dp[i][tn] = true only if the rest of the pattern is all '*'
+        dp[i][tn] = p[i] == '*' && dp[i + 1][tn];
+        for j in (0..tn).rev() {
+            if p[i] == '*' {
+                // '*' matches zero chars (dp[i+1][j]) or one+ chars (dp[i][j+1]).
+                dp[i][j] = dp[i + 1][j] || dp[i][j + 1];
+            } else if p[i] == t[j] {
+                dp[i][j] = dp[i + 1][j + 1];
+            } else {
+                dp[i][j] = false;
             }
         }
-        false
-    } else if ti < t.len() && p[pi] == t[ti] {
-        glob_rec(p, pi + 1, t, ti + 1)
-    } else {
-        false
     }
+    dp[0][0]
 }
 
 #[cfg(test)]

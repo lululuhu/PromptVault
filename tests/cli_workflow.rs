@@ -336,7 +336,7 @@ fn log_max_count_limits_output() {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
         commands::commit::run("c3").unwrap();
         // Only the most recent commit should show.
-        commands::log::run(Some(1)).unwrap();
+        commands::log::run(Some(1), false).unwrap();
     });
 }
 
@@ -455,4 +455,95 @@ fn write_at_cwd(rel: &str, content: &str) {
         std::fs::create_dir_all(parent).unwrap();
     }
     std::fs::write(path, content).unwrap();
+}
+
+// ---- Round-2 additions: blame, config, detached checkout, oneline log -----
+
+#[test]
+fn config_set_get_list() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    in_dir(root, || {
+        commands::config::set("author", "Alice").unwrap();
+        commands::config::set("color", "blue").unwrap();
+        assert!(commands::config::get("author").is_ok());
+        assert!(commands::config::get("missing").is_err());
+        // Bad input rejected.
+        assert!(commands::config::set("bad=key", "x").is_err());
+        assert!(commands::config::set("k", "multi\nline").is_err());
+        // List should not error.
+        commands::config::list().unwrap();
+        // set then commit should use the configured author.
+        write_at_cwd("a.md", "v1\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // The commit object should carry "Alice".
+        let repo = promptvault::core::repository::Repo::find().unwrap();
+        let head = repo.head_commit().unwrap().unwrap();
+        let commit = promptvault::core::objects::read_commit(&repo.pv_dir, &head).unwrap();
+        assert_eq!(commit.author.as_deref(), Some("Alice"));
+    });
+}
+
+#[test]
+fn log_oneline_format() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("first commit").unwrap();
+        // Should not error and should print one line per commit.
+        commands::log::run(None, true).unwrap();
+    });
+}
+
+#[test]
+fn blame_runs_on_tracked_file() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "line one\nline two\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Modify one line and commit.
+        write_at_cwd("a.md", "line one\nLINE TWO CHANGED\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2").unwrap();
+        // blame should not error and should print both lines.
+        commands::blame::run("a.md").unwrap();
+    });
+}
+
+#[test]
+fn checkout_detached_at_commit() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run(None).unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        let first_hash = {
+            let repo = promptvault::core::repository::Repo::find().unwrap();
+            repo.head_commit().unwrap().unwrap()
+        };
+        write_at_cwd("a.md", "v2\n");
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c2").unwrap();
+
+        // Detach at the first commit via short hash.
+        let short = &first_hash[..7];
+        commands::checkout::run(short).unwrap();
+        // Working tree should now show v1.
+        let content = std::fs::read_to_string("a.md").unwrap();
+        assert_eq!(content, "v1\n");
+        // Back to main.
+        commands::checkout::run("main").unwrap();
+        let content = std::fs::read_to_string("a.md").unwrap();
+        assert_eq!(content, "v2\n");
+    });
 }

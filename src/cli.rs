@@ -146,6 +146,9 @@ pub enum Command {
         /// Maximum number of commits to show
         #[arg(short = 'n', long)]
         max_count: Option<usize>,
+        /// One line per commit (hash + first line of message)
+        #[arg(long)]
+        oneline: bool,
     },
 
     /// Show changes: working tree vs HEAD, or between two refs
@@ -240,6 +243,27 @@ pub enum Command {
 
     /// Show vault statistics (commits, blobs, branches, disk usage)
     Stats,
+
+    /// Show which commit last touched each line of a prompt
+    Blame {
+        /// Path of the tracked prompt to blame
+        path: String,
+    },
+
+    /// Get / set repository configuration (author, etc.)
+    #[command(subcommand)]
+    Config(ConfigCommand),
+}
+
+#[derive(Subcommand, Debug)]
+pub enum ConfigCommand {
+    /// Print the value of a config key
+    Get { key: String },
+    /// Set a config key (writes to `.pv/config`)
+    Set { key: String, value: String },
+    /// List all config entries
+    #[command(alias = "ls")]
+    List,
 }
 
 #[derive(Subcommand, Debug)]

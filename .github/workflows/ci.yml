@@ -38,7 +38,12 @@ jobs:
           if "$BIN" commit -m "noop" 2>/dev/null; then echo "FAIL: no-op commit accepted"; exit 1; fi
           "$BIN" tag v1
           "$BIN" log -n 5
+          "$BIN" log --oneline
           "$BIN" list
+          # Config round-trip
+          "$BIN" config set author "CI Bot"
+          "$BIN" config get author
+          "$BIN" config list
           printf 'You are a precise summarizer.\n\n{{text}}\n' > hello.md
           "$BIN" diff
           # Ref-to-ref diff: v1 vs HEAD
@@ -55,6 +60,12 @@ jobs:
           "$BIN" branch
           # Revert by tag (tree is clean here)
           "$BIN" revert v1
+          # Blame a tracked file
+          "$BIN" blame hello.md
+          # Detached HEAD at the first commit, then back to main.
+          FIRST_HASH=$("$BIN" log --oneline | tail -1 | awk '{print $1}')
+          "$BIN" checkout "$FIRST_HASH"
+          "$BIN" checkout main
           # Eval workflow
           printf '{"text":"hello world","expected":"summarizer"}\n{"text":"short"}\n' > cases.jsonl
           "$BIN" eval hello.md --dataset cases.jsonl --show

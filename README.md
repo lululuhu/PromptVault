@@ -49,6 +49,8 @@ pv log           # walk back through every iteration
 - **Grep** — `pv grep <pattern>` searches across all tracked prompts in HEAD (case-insensitive by default).
 - **Export** — `pv export HEAD -o snap.zip` bundles a commit's tree as a zip archive for sharing.
 - **Stats** — `pv stats` shows commit/blob/branch counts and disk usage.
+- **Blame** — `pv blame <path>` shows which commit last touched each line.
+- **Config** — `pv config set author Alice` persists per-repo settings (author, etc.).
 - **Remote sync** — `pv remote add origin <url>` then `pv push` / `pv pull` syncs the vault to any git host (GitHub, GitLab, Gitea…). No servers, no accounts.
 - **TUI** — `pv tui` launches an interactive commit browser (arrow keys to navigate, `q` to quit).
 - **Model runner** *(optional, `--features run`)* — `pv run` renders a prompt and sends it to OpenAI, Anthropic, or Ollama. **API keys live only in env vars; nothing is ever logged or stored.**
@@ -195,10 +197,10 @@ Use `HEAD:summarize.md` to eval the committed version, or `--strict` to fail on 
 | `pv commit -m "msg"` | Snapshot staged prompts. Refuses empty messages and no-op commits. |
 | `pv status` | Show staged / modified / untracked prompts. |
 | `pv diff [a] [b]` | Diff working tree vs HEAD, or compare two refs (tags/branches/commits). |
-| `pv log [-n <count>]` | Show commit history (optionally limited to N commits). |
+| `pv log [-n <count>] [--oneline]` | Show commit history (optionally limited / one-line-per-commit). |
 | `pv list` | List tracked prompts and their status. |
 | `pv branch [name]` | List branches, or create one from HEAD. Use `-d <name>` to delete. |
-| `pv checkout <branch>` | Switch branch (restores the working tree; refuses if dirty). |
+| `pv checkout <branch\|commit>` | Switch branch, or detach HEAD at a commit/tag (restores the working tree; refuses if dirty). |
 | `pv tag [name]` | List tags, or create one at HEAD. Use `-d <name>` to delete. |
 | `pv revert <commit>` | Restore the working tree + index to a past commit (by hash, tag, or branch). Refuses if the working tree is dirty. HEAD is unchanged — commit to record the rollback. |
 | `pv eval <prompt> -d <file>` | Render a prompt against a JSON Lines dataset and assert `expected`. Flags: `--strict`, `--show`. |
@@ -215,6 +217,8 @@ Use `HEAD:summarize.md` to eval the committed version, or `--strict` to fail on 
 | `pv grep <pattern> [-s]` | Search across all tracked prompts (case-insensitive by default). |
 | `pv export <ref> -o <file>` | Export a commit's tree as a zip archive. |
 | `pv stats` | Show vault statistics (commits, blobs, branches, disk usage). |
+| `pv blame <path>` | Show which commit last touched each line of a prompt. |
+| `pv config get/set/list` | Read / write repository config (e.g. `pv config set author Alice`). |
 
 ## 🏗️ How it works
 
@@ -256,6 +260,7 @@ PromptVault is early and moving fast. Planned:
 - [x] **Model runner** — `pv run` against OpenAI/Anthropic/Ollama (opt-in feature, keys from env).
 - [x] **A/B testing** — `pv ab` renders two prompt versions against a dataset and diffs them.
 - [x] **Stash / reset / clean / grep / export / stats** — everyday git-class utilities, prompt-native.
+- [x] **Blame / config / detached HEAD** — line-level history, per-repo config, checkout at a commit.
 
 Have an opinion? Open an issue — good ideas ship fast.
 

@@ -62,7 +62,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
         let p = entry.path();
         let name = entry.file_name();
         // Skip vault / vcs internals.
-        if name == ".pv" || name == ".git" || name == "target" {
+        if crate::core::safe::is_skip_dir(&name.to_string_lossy()) {
             continue;
         }
         if p.is_dir() {

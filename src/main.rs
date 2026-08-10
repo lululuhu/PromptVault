@@ -45,7 +45,7 @@ fn run() -> anyhow::Result<()> {
         Command::Add { paths } => commands::add::run(paths),
         Command::Rm { paths } => commands::rm::run(paths),
         Command::Commit { message } => commands::commit::run(&message),
-        Command::Log { max_count } => commands::log::run(max_count),
+        Command::Log { max_count, oneline } => commands::log::run(max_count, oneline),
         Command::Diff { a, b } => {
             let mut args = Vec::new();
             if let Some(a) = a {
@@ -74,5 +74,13 @@ fn run() -> anyhow::Result<()> {
         Command::Export { spec, output } => commands::export::run(&spec, output),
         Command::Grep { pattern, case_sensitive } => commands::grep::run(&pattern, case_sensitive),
         Command::Stats => commands::stats::run(),
+        Command::Blame { path } => commands::blame::run(&path),
+        Command::Config(cmd) => match cmd {
+            promptvault::cli::ConfigCommand::Get { key } => commands::config::get(&key),
+            promptvault::cli::ConfigCommand::Set { key, value } => {
+                commands::config::set(&key, &value)
+            }
+            promptvault::cli::ConfigCommand::List => commands::config::list(),
+        },
     }
 }

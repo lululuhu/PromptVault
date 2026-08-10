@@ -203,7 +203,7 @@ fn collect_prompt_files(
         let entry = entry?;
         let p = entry.path();
         let name = entry.file_name();
-        if name == ".pv" || name == ".git" || name == "target" {
+        if crate::core::safe::is_skip_dir(&name.to_string_lossy()) {
             continue;
         }
         // Use symlink_metadata so we don't follow symlinks (avoid cycles / escapes).

@@ -86,21 +86,8 @@ fn resolve_commit(repo: &Repo, spec: &str) -> Result<Option<String>> {
     if spec == "HEAD" {
         return repo.head_commit();
     }
-    // Hex prefix?
-    if spec.len() >= 4 && spec.chars().all(|c| c.is_ascii_hexdigit()) {
-        let (dir, file_prefix) = spec.split_at(2);
-        let dir_path = repo.pv_dir.join("objects").join(dir);
-        if dir_path.exists() {
-            for entry in fs::read_dir(&dir_path)? {
-                let entry = entry?;
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with(file_prefix) {
-                    return Ok(Some(format!("{dir}{name}")));
-                }
-            }
-        }
-    }
-    Ok(None)
+    // Hex prefix? (errors on ambiguity)
+    crate::core::safe::resolve_hash_prefix(&repo.pv_dir.join("objects"), spec)
 }
 
 fn head_tree_entries(repo: &Repo) -> Result<Vec<objects::TreeEntry>> {
