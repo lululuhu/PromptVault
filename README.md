@@ -1,12 +1,24 @@
 # PromptVault
 
-**Git for AI Prompts.** Version, diff, branch, and roll back your prompts — local-first, blazingly fast.
+<p align="center">
+  <img src="docs/logo.jpg" width="180" alt="PromptVault logo">
+</p>
 
-[![CI](https://github.com/lululuhu/promptvault/actions/workflows/ci.yml/badge.svg)](https://github.com/lululuhu/promptvault/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![crates.io](https://img.shields.io/crates/v/promptvault.svg)](https://crates.io/crates/promptvault)
-[![Rust](https://img.shields.io/badge/rust-1.74%2B-orange.svg)](https://www.rust-lang.org)
-[![stars](https://img.shields.io/github/stars/lululuhu/promptvault?style=social)](https://github.com/lululuhu/promptvault/stargazers)
+<p align="center">
+  <strong>Git for AI Prompts.</strong> Version, diff, branch, and roll back your prompts — local-first, blazingly fast.
+</p>
+
+<p align="center">
+  <img src="docs/demo.gif" alt="PromptVault demo">
+</p>
+
+<p align="center">
+  <a href="https://github.com/lululuhu/promptvault/actions/workflows/ci.yml"><img src="https://github.com/lululuhu/promptvault/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://crates.io/crates/promptvault"><img src="https://img.shields.io/crates/v/promptvault.svg" alt="crates.io"></a>
+  <img src="https://img.shields.io/badge/rust-1.74%2B-orange.svg" alt="Rust">
+  <a href="https://github.com/lululuhu/promptvault/stargazers"><img src="https://img.shields.io/github/stars/lululuhu/promptvault?style=social" alt="stars"></a>
+</p>
 
 ---
 
