@@ -145,3 +145,151 @@ fn eval_renders_and_asserts() {
         commands::eval::run("p.md", PathBuf::from("cases.jsonl"), false, false).unwrap();
     });
 }
+
+#[test]
+fn stash_push_pop_roundtrip() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+    });
+    // Make a dirty change, stash it.
+    write(root, "a.md", "dirty change\n");
+    in_dir(root, || {
+        commands::stash::push().unwrap();
+        // Working tree should now be back to v1.
+        let c = fs::read_to_string("a.md").unwrap();
+        assert_eq!(c, "v1\n");
+    });
+    // Pop restores the dirty change.
+    in_dir(root, || {
+        commands::stash::pop().unwrap();
+        let c = fs::read_to_string("a.md").unwrap();
+        assert_eq!(c, "dirty change\n");
+        // Stash file should be gone.
+        assert!(!std::path::Path::new(".pv/stash").exists());
+    });
+}
+
+#[test]
+fn stash_drop_discards() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+    });
+    write(root, "a.md", "dirty\n");
+    in_dir(root, || {
+        commands::stash::push().unwrap();
+        commands::stash::drop().unwrap();
+        assert!(!std::path::Path::new(".pv/stash").exists());
+    });
+}
+
+#[test]
+fn reset_unstages_a_file() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "v1\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+    });
+    // Stage a change, then unstage it.
+    write(root, "a.md", "v2\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::reset::run(vec![PathBuf::from("a.md")]).unwrap();
+        // After reset, the index should match HEAD (v1).
+        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let entry = idx.entries.iter().find(|e| e.path == "a.md").unwrap();
+        let head_hash = {
+            let repo = promptvault::core::repository::Repo::find().unwrap();
+            let h = repo.head_commit().unwrap().unwrap();
+            let commit = promptvault::core::objects::read_commit(&repo.pv_dir, &h).unwrap();
+            let tree = promptvault::core::objects::read_tree(&repo.pv_dir, &commit.tree).unwrap();
+            tree.iter().find(|e| e.path == "a.md").unwrap().hash.clone()
+        };
+        assert_eq!(entry.hash, head_hash);
+    });
+}
+
+#[test]
+fn clean_removes_untracked() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "v1\n");
+    write(root, "b.md", "untracked\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Dry run should not delete.
+        commands::clean::run(true, false).unwrap();
+        assert!(root.join("b.md").exists());
+        // Force should delete b.md but not a.md.
+        commands::clean::run(false, true).unwrap();
+        assert!(!root.join("b.md").exists());
+        assert!(root.join("a.md").exists());
+    });
+}
+
+#[test]
+fn export_writes_zip() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "hello\n");
+    write(root, "b.md", "world\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from(".")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        let out = PathBuf::from("snap.zip");
+        commands::export::run("HEAD", out.clone()).unwrap();
+        let meta = fs::metadata(&out).unwrap();
+        assert!(meta.len() > 0, "zip file should be non-empty");
+        // ZIP files start with PK\x03\x04.
+        let bytes = fs::read(&out).unwrap();
+        assert_eq!(&bytes[..4], &[0x50, 0x4b, 0x03, 0x04]);
+    });
+}
+
+#[test]
+fn grep_finds_matches() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "You are a summarizer.\nSummarize: {{text}}\n");
+    write(root, "b.md", "Translate: {{text}}\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from(".")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        // Case-insensitive by default: "summarize" should match a.md line 1 and 2.
+        commands::grep::run("summarize", false).unwrap();
+        // Case-sensitive: should match only "Summarize:" on line 2.
+        commands::grep::run("Summarize", true).unwrap();
+    });
+}
+
+#[test]
+fn stats_runs_without_error() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    in_dir(root, || commands::init::run().unwrap());
+    write(root, "a.md", "hello\n");
+    in_dir(root, || {
+        commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
+        commands::commit::run("c1").unwrap();
+        commands::branch::run(Some("dev"), None).unwrap();
+        commands::tag::run(Some("v1"), None).unwrap();
+        // Should not error.
+        commands::stats::run().unwrap();
+    });
+}

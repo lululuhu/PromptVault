@@ -63,5 +63,16 @@ fn run() -> anyhow::Result<()> {
         Command::Eval { prompt, dataset, strict, show } => {
             commands::eval::run(&prompt, dataset, strict, show)
         }
+        Command::Stash(cmd) => match cmd {
+            promptvault::cli::StashCommand::Push => commands::stash::push(),
+            promptvault::cli::StashCommand::Pop => commands::stash::pop(),
+            promptvault::cli::StashCommand::Drop => commands::stash::drop(),
+            promptvault::cli::StashCommand::List => commands::stash::list(),
+        },
+        Command::Reset { paths } => commands::reset::run(paths),
+        Command::Clean { dry_run, force } => commands::clean::run(dry_run, force),
+        Command::Export { spec, output } => commands::export::run(&spec, output),
+        Command::Grep { pattern, case_sensitive } => commands::grep::run(&pattern, case_sensitive),
+        Command::Stats => commands::stats::run(),
     }
 }

@@ -43,6 +43,12 @@ pv log           # walk back through every iteration
 - **Tags & rollback** — `pv tag v1.0` marks a version; `pv revert v1.0` restores the working tree to any past commit (by hash, tag, or branch).
 - **`.pvignore`** — a `.gitignore`-style file so drafts and scratch files stay out of the vault.
 - **Ref-to-ref diff** — `pv diff v1 v2` compares any two commits, tags, or branches.
+- **Stash** — `pv stash push` shelves uncommitted changes; `pv stash pop` restores them. One-slot, simple, fast.
+- **Reset** — `pv reset <path>` unstages a file (or `pv reset` to unstage everything). Working tree untouched.
+- **Clean** — `pv clean -f` deletes untracked prompt files (`-n` to preview). Like `git clean`.
+- **Grep** — `pv grep <pattern>` searches across all tracked prompts in HEAD (case-insensitive by default).
+- **Export** — `pv export HEAD -o snap.zip` bundles a commit's tree as a zip archive for sharing.
+- **Stats** — `pv stats` shows commit/blob/branch counts and disk usage.
 - **Remote sync** — `pv remote add origin <url>` then `pv push` / `pv pull` syncs the vault to any git host (GitHub, GitLab, Gitea…). No servers, no accounts.
 - **TUI** — `pv tui` launches an interactive commit browser (arrow keys to navigate, `q` to quit).
 - **Model runner** *(optional, `--features run`)* — `pv run` renders a prompt and sends it to OpenAI, Anthropic, or Ollama. **API keys live only in env vars; nothing is ever logged or stored.**
@@ -203,6 +209,12 @@ Use `HEAD:summarize.md` to eval the committed version, or `--strict` to fail on 
 | `pv run <prompt> --provider ...` | *(opt-in feature)* Render + send to OpenAI/Anthropic/Ollama. Keys from env vars only. |
 | `pv show <hash\|HEAD\|path>` | Print any object (blob/tree/commit) by hash, prefix, or path. |
 | `pv cat <path>` | Print a file's current content. |
+| `pv stash push` / `pop` / `drop` / `list` | Shelve and restore uncommitted changes. |
+| `pv reset [<path…>]` | Unstage a file (or everything). Working tree untouched. |
+| `pv clean -f` / `-n` | Delete (or preview) untracked prompt files. |
+| `pv grep <pattern> [-s]` | Search across all tracked prompts (case-insensitive by default). |
+| `pv export <ref> -o <file>` | Export a commit's tree as a zip archive. |
+| `pv stats` | Show vault statistics (commits, blobs, branches, disk usage). |
 
 ## 🏗️ How it works
 
@@ -243,6 +255,7 @@ PromptVault is early and moving fast. Planned:
 - [x] **TUI** — a `ratatui` interface for browsing history.
 - [x] **Model runner** — `pv run` against OpenAI/Anthropic/Ollama (opt-in feature, keys from env).
 - [x] **A/B testing** — `pv ab` renders two prompt versions against a dataset and diffs them.
+- [x] **Stash / reset / clean / grep / export / stats** — everyday git-class utilities, prompt-native.
 
 Have an opinion? Open an issue — good ideas ship fast.
 

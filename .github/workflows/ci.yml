@@ -57,6 +57,27 @@ jobs:
           "$BIN" eval HEAD:hello.md --dataset cases.jsonl --strict
           # A/B test: main vs experiment
           "$BIN" ab main:hello.md experiment:hello.md --dataset cases.jsonl --show
+          # New utilities: grep, stats, reset, clean, export
+          "$BIN" grep summarizer
+          "$BIN" grep Summarize -s
+          "$BIN" stats
+          # Stash round-trip
+          printf 'stashed change\n' >> hello.md
+          "$BIN" stash push
+          "$BIN" stash list
+          "$BIN" stash pop
+          # Reset (unstage)
+          printf 'temp\n' > hello.md
+          "$BIN" add .
+          "$BIN" reset hello.md
+          # Clean (dry-run then force) — need an untracked file
+          printf 'scratch\n' > scratch.md
+          "$BIN" clean -n
+          "$BIN" clean -f
+          test ! -f scratch.md
+          # Export to zip
+          "$BIN" export HEAD -o /tmp/ci/snap.zip
+          test -s /tmp/ci/snap.zip
           # Remote sync round-trip (local bare repo)
           git init --bare --quiet /tmp/bare.git
           "$BIN" remote add origin /tmp/bare.git

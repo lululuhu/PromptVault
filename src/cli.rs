@@ -189,6 +189,60 @@ pub enum Command {
         #[arg(long)]
         show: bool,
     },
+
+    /// Stash uncommitted changes (push/pop/drop/list)
+    #[command(subcommand)]
+    Stash(StashCommand),
+
+    /// Unstage a file (or all files). Leaves the working tree untouched.
+    Reset {
+        /// Paths to unstage. If empty, unstages everything back to HEAD.
+        paths: Vec<PathBuf>,
+    },
+
+    /// Remove untracked prompt files from the working tree
+    Clean {
+        /// Preview what would be removed (no files are deleted)
+        #[arg(short = 'n', long = "dry-run")]
+        dry_run: bool,
+        /// Actually delete untracked files (required to perform the clean)
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Export a commit's tree as a zip archive
+    Export {
+        /// Ref: commit hash/tag/branch/HEAD
+        spec: String,
+        /// Output zip file path
+        #[arg(short, long, value_name = "FILE")]
+        output: PathBuf,
+    },
+
+    /// Search across all tracked prompts in HEAD (like `git grep`)
+    Grep {
+        /// Search pattern (substring match)
+        pattern: String,
+        /// Case-sensitive (default: case-insensitive)
+        #[arg(short = 's', long)]
+        case_sensitive: bool,
+    },
+
+    /// Show vault statistics (commits, blobs, branches, disk usage)
+    Stats,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum StashCommand {
+    /// Save current changes and reset the working tree to HEAD
+    Push,
+    /// Restore the stashed changes and drop the stash
+    Pop,
+    /// Drop the stash without restoring
+    Drop,
+    /// List stashed files
+    #[command(alias = "ls")]
+    List,
 }
 
 #[derive(Subcommand, Debug)]
