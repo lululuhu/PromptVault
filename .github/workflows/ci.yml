@@ -58,8 +58,10 @@ jobs:
           "$BIN" commit -m "ci: experiment variant"
           "$BIN" checkout main
           "$BIN" branch
-          # Revert by tag (tree is clean here)
+          # Revert by tag, then commit so the tree is clean for checkout.
           "$BIN" revert v1
+          "$BIN" add .
+          "$BIN" commit -m "ci: revert to v1"
           # Blame a tracked file
           "$BIN" blame hello.md
           # Detached HEAD at the first commit, then back to main.
