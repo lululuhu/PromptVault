@@ -1,7 +1,7 @@
 # PromptVault
 
 <p align="center">
-  <img src="docs/logo.jpg" width="180" alt="PromptVault logo">
+  <img src="docs/logo.svg" width="180" alt="PromptVault logo">
 </p>
 
 <p align="center">
