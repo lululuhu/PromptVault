@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.gif" alt="PromptVault demo">
+  <img src="docs/demo.svg" alt="PromptVault demo">
 </p>
 
 <p align="center">
