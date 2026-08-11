@@ -1,8 +1,10 @@
 //! `pv blame <path>` — show which commit last touched each line of a prompt.
 //!
-//! Walks history from HEAD backwards; for each line in the current version,
-//! reports the most recent commit whose version of that line differs from its
-//! parent's version (i.e. the commit that introduced that exact line).
+//! For each line in the current (HEAD) version, reports the most recent commit
+//! whose version of that line differs from its parent's version — i.e. the
+//! commit that introduced that exact line content. This mirrors `git blame`
+//! semantics: a line is attributed to the commit that last added it (not the
+//! commit that last touched the file).
 
 use anyhow::Result;
 
@@ -28,65 +30,81 @@ pub fn run(path: &str) -> Result<()> {
     let cur_blob = objects::read_object(&repo.pv_dir, &entry.hash)?;
     let cur_lines = split_lines(&String::from_utf8_lossy(&cur_blob.data));
 
-    // For each line, find the commit that introduced it by walking history.
+    // Walk history from HEAD backwards, collecting (commit_hash, lines_at_this_commit)
+    // in newest→oldest order. For each commit we also record its parent's version
+    // of the file (empty if the file didn't exist yet).
+    //
+    // A line L in `cur_lines` is attributed to the newest commit C such that:
+    //   L is present in C's version  AND  L is NOT present in C's parent's version.
+    // (If C has no parent — i.e. it's the root — then L is attributed to C iff
+    // L is present in C's version.)
     let mut blame: Vec<Option<String>> = vec![None; cur_lines.len()];
     let mut remaining = cur_lines.len();
 
-    let mut cur_hash = Some(head.clone());
-    let mut prev_lines: Option<Vec<String>> = None;
+    // Collect the chain newest → oldest, with each commit's file content and
+    // its parent's file content.
+    let mut chain: Vec<(String, Vec<String>, Vec<String>)> = Vec::new();
+    let mut cur_hash_opt: Option<String> = Some(head.clone());
     let mut seen = std::collections::HashSet::new();
-
-    while let Some(h) = cur_hash {
+    while let Some(h) = cur_hash_opt {
         if !seen.insert(h.clone()) {
             break; // cycle guard
         }
         let commit = objects::read_commit(&repo.pv_dir, &h)?;
         let tree = objects::read_tree(&repo.pv_dir, &commit.tree)?;
-        let this_entry = tree.iter().find(|e| e.path == path);
-
-        let this_lines: Vec<String> = if let Some(e) = this_entry {
-            let blob = objects::read_object(&repo.pv_dir, &e.hash)?;
-            split_lines(&String::from_utf8_lossy(&blob.data))
-        } else {
-            // File didn't exist in this commit — treat as empty.
-            Vec::new()
+        let this_lines: Vec<String> = match tree.iter().find(|e| e.path == path) {
+            Some(e) => {
+                let blob = objects::read_object(&repo.pv_dir, &e.hash)?;
+                split_lines(&String::from_utf8_lossy(&blob.data))
+            }
+            None => Vec::new(),
         };
-
-        // Lines present in `this_lines` but not in `prev_lines` were introduced
-        // by this commit. (We process newest → oldest, so first hit wins.)
-        if let Some(prev) = &prev_lines {
-            for (i, line) in cur_lines.iter().enumerate() {
-                if blame[i].is_none() && this_lines.contains(line) && !prev.contains(line) {
-                    blame[i] = Some(h.clone());
-                    remaining -= 1;
+        // Parent's version of the file.
+        let parent_lines: Vec<String> = match &commit.parent {
+            Some(p) => {
+                let pc = objects::read_commit(&repo.pv_dir, p)?;
+                let pt = objects::read_tree(&repo.pv_dir, &pc.tree)?;
+                match pt.iter().find(|e| e.path == path) {
+                    Some(e) => {
+                        let blob = objects::read_object(&repo.pv_dir, &e.hash)?;
+                        split_lines(&String::from_utf8_lossy(&blob.data))
+                    }
+                    None => Vec::new(),
                 }
             }
-        } else {
-            // Newest commit — every line present in its version is "introduced" here
-            // unless it also existed in the parent (handled next iteration).
-            // Defer: we'll mark remaining lines on the parent step.
-        }
+            None => Vec::new(),
+        };
+        chain.push((h.clone(), this_lines, parent_lines));
+        cur_hash_opt = commit.parent;
+    }
 
+    // Walk newest → oldest. First commit that "introduces" a line wins.
+    for (hash, this_lines, parent_lines) in &chain {
         if remaining == 0 {
             break;
         }
-
-        prev_lines = Some(this_lines);
-        cur_hash = commit.parent;
+        for (i, line) in cur_lines.iter().enumerate() {
+            if blame[i].is_none()
+                && this_lines.contains(line)
+                && !parent_lines.contains(line)
+            {
+                blame[i] = Some(hash.clone());
+                remaining -= 1;
+            }
+        }
     }
 
-    // Any still-unblamed lines belong to the oldest reachable version of the file
-    // (or the file's creation). Attribute them to the oldest commit we visited.
+    // Any still-unblamed lines (e.g. the root commit's lines that weren't caught
+    // because of dedup edge cases) fall back to the oldest commit that has them.
     if remaining > 0 {
-        if let Some(oldest) = seen.iter().min_by_key(|h| {
-            // Approximate "oldest" by smallest timestamp. Cheap and good enough for blame.
-            objects::read_commit(&repo.pv_dir, h)
-                .map(|c| c.timestamp)
-                .unwrap_or(0)
-        }) {
-            for b in blame.iter_mut() {
-                if b.is_none() {
-                    *b = Some(oldest.clone());
+        for (hash, this_lines, _parent_lines) in chain.iter().rev() {
+            if remaining == 0 {
+                break;
+            }
+            for (i, line) in cur_lines.iter().enumerate() {
+                if blame[i].is_none() && this_lines.contains(line) {
+                    blame[i] = Some(hash.clone());
+                    remaining -= 1;
                 }
             }
         }

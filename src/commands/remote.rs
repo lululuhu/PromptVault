@@ -13,7 +13,7 @@ use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 
-use crate::core::repository::Repo;
+use crate::core::repository::{is_prompt_file, Repo};
 use crate::ui::printer;
 
 pub fn add(name: &str, url: &str) -> Result<()> {
@@ -77,6 +77,93 @@ pub fn pull(remote: &str) -> Result<()> {
         }
     }
     printer::ok(&format!("Pulled from '{remote}'"));
+
+    // After pulling new vault state, restore the working tree to match HEAD so
+    // the user actually sees the pulled prompts on disk. Without this, `pv pull`
+    // updates `.pv/` internals but leaves the working tree empty/stale — users
+    // think the pull failed.
+    restore_worktree_to_head(&repo)?;
+
+    Ok(())
+}
+
+/// Restore the working tree and index to match HEAD's tree.
+/// Used after `pv pull` so newly-pulled prompts appear on disk.
+fn restore_worktree_to_head(repo: &Repo) -> Result<()> {
+    use crate::core::ignore::IgnoreSet;
+
+    let head_entries: Vec<crate::core::objects::TreeEntry> = match repo.head_commit()? {
+        Some(h) => {
+            let commit = crate::core::objects::read_commit(&repo.pv_dir, &h)?;
+            crate::core::objects::read_tree(&repo.pv_dir, &commit.tree)?
+        }
+        None => Vec::new(),
+    };
+
+    let head_paths: std::collections::HashSet<&String> =
+        head_entries.iter().map(|e| &e.path).collect();
+
+    // Remove prompt files in working tree that are no longer in HEAD (and not ignored).
+    let ignore = IgnoreSet::load(&repo.root);
+    let mut to_remove = Vec::new();
+    collect_prompt_files(&repo.root, &repo.root, &ignore, &mut to_remove)?;
+    for p in to_remove {
+        if !head_paths.contains(&p) {
+            let abs = repo.root.join(&p);
+            if abs.exists() {
+                let _ = std::fs::remove_file(&abs);
+            }
+        }
+    }
+
+    // Write/overwrite files from HEAD's tree.
+    for e in &head_entries {
+        let abs = repo.root.join(&e.path);
+        if let Some(parent) = abs.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let blob = crate::core::objects::read_object(&repo.pv_dir, &e.hash)?;
+        std::fs::write(&abs, &blob.data)?;
+    }
+
+    // Rebuild the index to match HEAD.
+    let mut idx = repo.index()?;
+    idx.entries.clear();
+    for e in &head_entries {
+        idx.add(&e.path, &e.hash);
+    }
+    repo.save_index(&idx)?;
+
+    Ok(())
+}
+
+fn collect_prompt_files(
+    root: &std::path::Path,
+    dir: &std::path::Path,
+    ignore: &crate::core::ignore::IgnoreSet,
+    out: &mut Vec<String>,
+) -> Result<()> {
+    for entry in std::fs::read_dir(dir)? {
+        let entry = entry?;
+        let p = entry.path();
+        let name = entry.file_name();
+        if crate::core::safe::is_skip_dir(&name.to_string_lossy()) {
+            continue;
+        }
+        let ft = entry.file_type()?;
+        if ft.is_dir() {
+            collect_prompt_files(root, &p, ignore, out)?;
+        } else if ft.is_file() && is_prompt_file(&p) {
+            let rel = p
+                .strip_prefix(root)
+                .unwrap_or(&p)
+                .to_string_lossy()
+                .replace('\\', "/");
+            if !ignore.is_ignored(&rel) {
+                out.push(rel);
+            }
+        }
+    }
     Ok(())
 }
 

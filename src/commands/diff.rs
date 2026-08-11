@@ -9,16 +9,30 @@ use crate::ui::printer;
 
 /// `pv diff`           — working tree vs HEAD
 /// `pv diff <ref>`     — working tree vs <ref>
+/// `pv diff <path>`    — working tree vs HEAD, restricted to one path
 /// `pv diff <a> <b>`   — tree of <a> vs tree of <b>
 /// `pv diff --stat`    — summary only (which files changed, +/- counts)
 ///
 /// `<ref>` may be a commit hash (or prefix), tag, branch, or `HEAD`.
+///
+/// When given a single argument, we first try to resolve it as a ref. If that
+/// fails (it's not a known commit/tag/branch/HEAD), we treat it as a path filter
+/// against HEAD. This matches user intuition: `pv diff summarize.md` should diff
+/// that file, not fail silently because `summarize.md` isn't a commit hash.
 pub fn run(args: Vec<String>, stat: bool) -> Result<()> {
     let repo = Repo::find()?;
 
     match args.len() {
         0 => diff_worktree_vs(&repo, "HEAD", None, stat),
-        1 => diff_worktree_vs(&repo, &args[0], None, stat),
+        1 => {
+            // Try as a ref first; if not resolvable, treat as a path filter.
+            let resolved = resolve_commit(&repo, &args[0])?;
+            if resolved.is_some() {
+                diff_worktree_vs(&repo, &args[0], None, stat)
+            } else {
+                diff_worktree_vs(&repo, "HEAD", Some(&args[0]), stat)
+            }
+        }
         2 => diff_refs(&repo, &args[0], &args[1], stat),
         _ => bail!("too many arguments: `pv diff [a] [b]` takes at most 2"),
     }

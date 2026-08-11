@@ -43,27 +43,30 @@ pub fn push() -> Result<()> {
     }
 
     let mut stash = Stash::default();
-    let mut dirty = false;
+    let mut dirty_count = 0usize;
     for p in &paths {
         let abs = repo.root.join(p);
         let content = match fs::read(&abs) {
             Ok(c) => c,
             Err(_) => {
                 // File deleted from working tree — record as deleted (skip content).
-                dirty = true;
+                dirty_count += 1;
                 continue;
             }
         };
         // Is it different from HEAD?
         let head_hash = head_entries.iter().find(|e| &e.path == p).map(|e| &e.hash);
         let cur_hash = objects::hash_blob(&content);
-        if head_hash.map(|h| h != &cur_hash).unwrap_or(true) {
-            dirty = true;
+        let is_dirty = head_hash.map(|h| h != &cur_hash).unwrap_or(true);
+        if is_dirty {
+            dirty_count += 1;
         }
+        // Always save the working-tree content so `pop` can restore the full
+        // state, but only count dirty files in the user-facing message.
         stash.files.push((p.clone(), content));
     }
 
-    if !dirty {
+    if dirty_count == 0 {
         bail!("no local changes to stash");
     }
 
@@ -75,8 +78,7 @@ pub fn push() -> Result<()> {
     restore_head_tree(&repo, &head_entries, &ignore)?;
 
     printer::ok(&format!(
-        "Stashed {} file(s). Working tree reset to HEAD.",
-        stash.files.len()
+        "Stashed {dirty_count} dirty file(s). Working tree reset to HEAD."
     ));
     printer::info("run `pv stash pop` to restore");
     Ok(())

@@ -25,10 +25,21 @@ pub fn add(patterns: &[String]) -> Result<()> {
         content.push('\n');
     }
 
+    // Collect existing patterns so we don't add duplicates.
+    let existing: std::collections::HashSet<String> = content
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+
     let mut added = 0usize;
     for p in patterns {
         let trimmed = p.trim();
         if trimmed.is_empty() {
+            continue;
+        }
+        if existing.contains(trimmed) {
+            println!("{}  {} (already ignored)", printer::dim("skip"), trimmed);
             continue;
         }
         content.push_str(trimmed);
@@ -55,10 +66,15 @@ pub fn list() -> Result<()> {
         return Ok(());
     }
     let content = fs::read_to_string(&path)?;
+    let mut seen = std::collections::HashSet::new();
     let mut count = 0usize;
     for line in content.lines() {
         let line = line.trim();
         if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        // Deduplicate: a pattern duplicated in the file is only listed once.
+        if !seen.insert(line.to_string()) {
             continue;
         }
         println!("{line}");
