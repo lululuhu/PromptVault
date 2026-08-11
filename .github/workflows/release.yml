@@ -63,7 +63,7 @@ jobs:
         run: |
           set -e
           TAG="${GITHUB_REF##*/}"
-          if [ -z "$TAG" ] || [ "$TAG" = "refs/heads/main" ]; then
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
             TAG="${{ github.event.inputs.tag }}"
           fi
           STAGING="promptvault-${TAG}-${{ matrix.target }}"
@@ -79,7 +79,7 @@ jobs:
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          if ([string]::IsNullOrEmpty($tag) -or $tag -eq "refs/heads/main") {
+          if ([string]::IsNullOrEmpty($tag) -or $tag -eq "main") {
             $tag = "${{ github.event.inputs.tag }}"
           }
           $staging = "promptvault-$tag-${{ matrix.target }}"
@@ -117,8 +117,8 @@ jobs:
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name == 'refs/heads/main' && github.event.inputs.tag || github.ref_name }}
-          name: ${{ github.ref_name == 'refs/heads/main' && github.event.inputs.tag || github.ref_name }}
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
           files: |
             artifacts/*.tar.gz
