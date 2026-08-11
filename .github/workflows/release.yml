@@ -55,7 +55,7 @@ jobs:
         run: cross build --release --target ${{ matrix.target }}
 
       - name: Build (native)
-        if: !matrix.cross
+        if: ${{ !matrix.cross }}
         run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package (unix)
