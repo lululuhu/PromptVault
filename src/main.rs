@@ -16,6 +16,7 @@ fn run() -> anyhow::Result<()> {
         Command::Init { path } => commands::init::run(path.as_deref()),
         Command::Branch { name, delete } => commands::branch::run(name.as_deref(), delete.as_deref()),
         Command::Checkout { branch } => commands::checkout::run(&branch),
+        Command::Merge { branch } => commands::merge::run(&branch),
         Command::Tag { name, delete } => commands::tag::run(name.as_deref(), delete.as_deref()),
         Command::Revert { commit } => commands::revert::run(&commit),
         Command::Tui => promptvault::tui::run(),
@@ -46,7 +47,7 @@ fn run() -> anyhow::Result<()> {
         Command::Rm { paths } => commands::rm::run(paths),
         Command::Commit { message } => commands::commit::run(&message),
         Command::Log { max_count, oneline } => commands::log::run(max_count, oneline),
-        Command::Diff { a, b } => {
+        Command::Diff { a, b, stat } => {
             let mut args = Vec::new();
             if let Some(a) = a {
                 args.push(a);
@@ -54,7 +55,7 @@ fn run() -> anyhow::Result<()> {
             if let Some(b) = b {
                 args.push(b);
             }
-            commands::diff::run(args)
+            commands::diff::run(args, stat)
         }
         Command::Show { target } => commands::show::run(&target),
         Command::List => commands::list::run(),
@@ -89,5 +90,6 @@ fn run() -> anyhow::Result<()> {
                 commands::ignore::remove(&patterns)
             }
         },
+        Command::Completions { shell, out } => commands::completions::run(&shell, out),
     }
 }

@@ -38,11 +38,12 @@ pv log           # walk back through every iteration
 ## ✨ Features
 
 - **Snapshots** — commit prompt versions with messages, just like git.
-- **Semantic diff** — line-level `+`/`-` diff so you can see *exactly* which instruction you changed.
-- **Branches & A/B testing** — `pv branch experiment` → `pv checkout experiment`. Switch branches and the working tree restores instantly. Run two prompt variants side by side.
+- **Semantic diff** — line-level `+`/`-` diff so you can see *exactly* which instruction you changed. `pv diff --stat` for a one-line summary per file.
+- **Branches & merging** — `pv branch experiment` → `pv checkout experiment`. Switch branches and the working tree restores instantly. `pv merge experiment` merges it back (fast-forward or three-way, with conflict markers).
 - **Tags & rollback** — `pv tag v1.0` marks a version; `pv revert v1.0` restores the working tree to any past commit (by hash, tag, or branch).
-- **`.pvignore`** — a `.gitignore`-style file so drafts and scratch files stay out of the vault.
+- **`.pvignore`** — a `.gitignore`-style file so drafts and scratch files stay out of the vault. `pv ignore add/list/rm` manages it.
 - **Ref-to-ref diff** — `pv diff v1 v2` compares any two commits, tags, or branches.
+- **Ref:path access** — `pv show HEAD:summarize.md` or `pv show experiment:summarize.md` reads any file at any ref.
 - **Stash** — `pv stash push` shelves uncommitted changes; `pv stash pop` restores them. One-slot, simple, fast.
 - **Reset** — `pv reset <path>` unstages a file (or `pv reset` to unstage everything). Working tree untouched.
 - **Clean** — `pv clean -f` deletes untracked prompt files (`-n` to preview). Like `git clean`.
@@ -53,6 +54,7 @@ pv log           # walk back through every iteration
 - **Config** — `pv config set author Alice` persists per-repo settings (author, etc.).
 - **Remote sync** — `pv remote add origin <url>` then `pv push` / `pv pull` syncs the vault to any git host (GitHub, GitLab, Gitea…). No servers, no accounts.
 - **TUI** — `pv tui` launches an interactive commit browser (arrow keys to navigate, `q` to quit).
+- **Shell completions** — `pv completions bash/zsh/fish` prints a completion script for your shell.
 - **Model runner** *(optional, `--features run`)* — `pv run` renders a prompt and sends it to OpenAI, Anthropic, or Ollama. **API keys live only in env vars; nothing is ever logged or stored.**
 - **A/B testing** — `pv ab main:s.md experiment:s.md -d cases.jsonl` renders two prompt versions against the same dataset and diffs them line by line. Pure local, no model calls.
 - **Evals** — `pv eval` renders a prompt against a JSON Lines dataset and runs assertions. **No model calls, no API keys, no network** — pipe the rendered prompts to any runner you trust.
@@ -64,11 +66,28 @@ pv log           # walk back through every iteration
 
 ## 📦 Install
 
+### Option 1: Prebuilt binary (no Rust toolchain needed)
+
+Download the latest binary for your platform from the
+[Releases page](https://github.com/lululuhu/promptvault/releases):
+
+| Platform | File |
+|---|---|
+| Linux x86_64 | `promptvault-vX.Y.Z-x86_64-unknown-linux-gnu.tar.gz` |
+| Linux aarch64 | `promptvault-vX.Y.Z-aarch64-unknown-linux-gnu.tar.gz` |
+| macOS x86_64 | `promptvault-vX.Y.Z-x86_64-apple-darwin.tar.gz` |
+| macOS aarch64 (Apple Silicon) | `promptvault-vX.Y.Z-aarch64-apple-darwin.tar.gz` |
+| Windows x86_64 | `promptvault-vX.Y.Z-x86_64-pc-windows-msvc.zip` |
+
+Extract it and put `pv` (or `pv.exe`) on your `PATH`.
+
+### Option 2: cargo
+
 ```bash
 cargo install promptvault
 ```
 
-Or build from source:
+### Option 3: build from source
 
 ```bash
 git clone https://github.com/lululuhu/promptvault
@@ -251,16 +270,20 @@ Every prompt version is a **blob** addressed by the SHA-256 of `blob\0<content>`
 PromptVault is early and moving fast. Planned:
 
 - [x] **Branches** — `pv branch`, `pv checkout` for A/B prompt experiments.
+- [x] **Merge** — `pv merge` with fast-forward and three-way strategies (conflict markers for manual resolution).
 - [x] **Evals** — `pv eval` renders templates against a dataset and asserts. No model calls.
 - [x] **Tags & rollback** — `pv tag`, `pv revert` for first-class version pinning and rollback.
-- [x] **`.pvignore`** — keep drafts and scratch files out of the vault.
-- [x] **Ref-to-ref diff** — `pv diff v1 v2`.
+- [x] **`.pvignore`** — keep drafts and scratch files out of the vault. `pv ignore add/list/rm` manages it.
+- [x] **Ref-to-ref diff** — `pv diff v1 v2`, plus `pv diff --stat` for summaries.
+- [x] **Ref:path access** — `pv show HEAD:path` or `pv show branch:path` reads any file at any ref.
 - [x] **Remote sync** — push/pull vaults to any git host as a backing store.
 - [x] **TUI** — a `ratatui` interface for browsing history.
 - [x] **Model runner** — `pv run` against OpenAI/Anthropic/Ollama (opt-in feature, keys from env).
 - [x] **A/B testing** — `pv ab` renders two prompt versions against a dataset and diffs them.
 - [x] **Stash / reset / clean / grep / export / stats** — everyday git-class utilities, prompt-native.
 - [x] **Blame / config / detached HEAD** — line-level history, per-repo config, checkout at a commit.
+- [x] **Shell completions** — `pv completions bash/zsh/fish/elvish/powershell`.
+- [x] **Prebuilt binaries** — cross-platform releases on GitHub (Linux/macOS/Windows, x86_64/aarch64).
 
 Have an opinion? Open an issue — good ideas ship fast.
 

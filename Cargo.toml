@@ -1,6 +1,6 @@
 [package]
 name = "promptvault"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["PromptVault Contributors"]
 license = "MIT"
@@ -21,6 +21,7 @@ path = "src/lib.rs"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
+clap_complete = "4.5"
 sha2 = "0.10"
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }

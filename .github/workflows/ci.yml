@@ -66,6 +66,16 @@ jobs:
           FIRST_HASH=$("$BIN" log --oneline | tail -1 | awk '{print $1}')
           "$BIN" checkout "$FIRST_HASH"
           "$BIN" checkout main
+          # Merge: fast-forward experiment back into main.
+          "$BIN" merge experiment
+          # New: show ref:path, diff --stat, completions
+          "$BIN" show HEAD:hello.md
+          "$BIN" diff --stat
+          "$BIN" diff v1 HEAD --stat
+          "$BIN" completions bash > /tmp/ci/pv.bash
+          test -s /tmp/ci/pv.bash
+          "$BIN" completions zsh > /tmp/ci/_pv
+          test -s /tmp/ci/_pv
           # Eval workflow
           printf '{"text":"hello world","expected":"summarizer"}\n{"text":"short"}\n' > cases.jsonl
           "$BIN" eval hello.md --dataset cases.jsonl --show

@@ -39,6 +39,12 @@ pub enum Command {
         branch: String,
     },
 
+    /// Merge another branch into the current branch
+    Merge {
+        /// Branch to merge into the current branch
+        branch: String,
+    },
+
     /// List, create, or delete tags
     Tag {
         /// Name of the tag to create (points at HEAD)
@@ -157,6 +163,9 @@ pub enum Command {
         a: Option<String>,
         /// Optional target ref. When given, compares `a` against `b` (both must be refs).
         b: Option<String>,
+        /// Show only a summary of which files changed (with +/- counts), not the full diff
+        #[arg(long)]
+        stat: bool,
     },
 
     /// Show the content of an object by hash, ref, or tracked path
@@ -257,6 +266,15 @@ pub enum Command {
     /// Manage `.pvignore` patterns (add / list / remove)
     #[command(subcommand)]
     Ignore(IgnoreCommand),
+
+    /// Print shell completion script (bash/zsh/fish/elvish/powershell)
+    Completions {
+        /// Shell name: bash | zsh | fish | elvish | powershell
+        shell: String,
+        /// Write to a file instead of stdout (optional)
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand, Debug)]

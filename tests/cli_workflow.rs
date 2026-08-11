@@ -675,7 +675,7 @@ fn diff_surfaces_read_errors() {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
         commands::commit::run("c2").unwrap();
         // Diff between two valid commits should work.
-        commands::diff::run(vec!["HEAD~1".to_string()]).unwrap_or_else(|e| {
+        commands::diff::run(vec!["HEAD~1".to_string()], false).unwrap_or_else(|e| {
             // HEAD~1 is not supported — use a tag instead.
             let _ = e;
         });
@@ -684,7 +684,7 @@ fn diff_surfaces_read_errors() {
     in_dir(root, || {
         commands::tag::run(Some("v1"), None).unwrap();
         // diff v1 HEAD should work without error.
-        let result = commands::diff::run(vec!["v1".to_string(), "HEAD".to_string()]);
+        let result = commands::diff::run(vec!["v1".to_string(), "HEAD".to_string()], false);
         assert!(result.is_ok(), "diff between valid refs should succeed");
     });
 }
