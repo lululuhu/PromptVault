@@ -1,11 +1,11 @@
 # prv
 
 <p align="center">
-  <img src="docs/logo.svg" width="180" alt="prv logo">
+  <img src="docs/logo.svg" width="320" alt="prv logo">
 </p>
 
 <p align="center">
-  <strong>Prove your prompts.</strong> Git for AI prompts — version, diff, branch, evaluate, and roll back. Local-first, blazingly fast.
+  <strong>Prove your prompts.</strong> Version, diff, branch, evaluate, and roll back — local-first, blazingly fast.
 </p>
 
 <p align="center">

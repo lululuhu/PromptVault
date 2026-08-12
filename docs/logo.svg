@@ -1,65 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" width="320" height="120">
   <defs>
-    <linearGradient id="vaultGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#a855f7"/>
+    <linearGradient id="markGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#58a6ff"/>
+      <stop offset="100%" stop-color="#bc8cff"/>
     </linearGradient>
-    <linearGradient id="doorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#1e1b4b"/>
-      <stop offset="100%" stop-color="#0f0f23"/>
-    </linearGradient>
-    <linearGradient id="metalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e2e8f0"/>
-      <stop offset="100%" stop-color="#94a3b8"/>
-    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect x="8" y="8" width="240" height="240" rx="48" fill="url(#vaultGrad)"/>
-
-  <!-- Vault body (the safe door) -->
-  <rect x="56" y="56" width="144" height="144" rx="16" fill="url(#doorGrad)" stroke="url(#metalGrad)" stroke-width="4"/>
-
-  <!-- Vault door inner ring -->
-  <circle cx="128" cy="128" r="52" fill="none" stroke="#334155" stroke-width="3"/>
-  <circle cx="128" cy="128" r="44" fill="none" stroke="#475569" stroke-width="2"/>
-
-  <!-- Center dial (the combination lock) -->
-  <circle cx="128" cy="128" r="30" fill="#0f172a" stroke="url(#metalGrad)" stroke-width="3"/>
-  <circle cx="128" cy="128" r="22" fill="none" stroke="#1e293b" stroke-width="2"/>
-
-  <!-- Dial tick marks -->
-  <g stroke="url(#metalGrad)" stroke-width="2" stroke-linecap="round">
-    <line x1="128" y1="104" x2="128" y2="110"/>
-    <line x1="128" y1="146" x2="128" y2="152"/>
-    <line x1="104" y1="128" x2="110" y2="128"/>
-    <line x1="146" y1="128" x2="152" y2="128"/>
-    <line x1="111" y1="111" x2="115" y2="115"/>
-    <line x1="141" y1="141" x2="145" y2="145"/>
-    <line x1="111" y1="145" x2="115" y2="141"/>
-    <line x1="141" y1="115" x2="145" y2="111"/>
+  <!-- Logo mark: rounded square with gradient + layers icon -->
+  <g filter="url(#glow)">
+    <rect x="10" y="10" width="100" height="100" rx="28" fill="url(#markGrad)"/>
+  </g>
+  <g transform="translate(35, 35) scale(2.083)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
+    <path d="m2 17 10 5 10-5"/>
+    <path d="m2 12 10 5 10-5"/>
   </g>
 
-  <!-- Center dot -->
-  <circle cx="128" cy="128" r="5" fill="url(#metalGrad)"/>
-
-  <!-- Dial pointer (arrow pointing up) -->
-  <path d="M 128 100 L 124 108 L 132 108 Z" fill="url(#metalGrad)"/>
-
-  <!-- Vault handle/lever on the right -->
-  <rect x="196" y="120" width="14" height="16" rx="2" fill="url(#metalGrad)"/>
-  <circle cx="203" cy="128" r="3" fill="#1e1b4b"/>
-
-  <!-- Hinges on the left -->
-  <rect x="48" y="76" width="10" height="14" rx="2" fill="url(#metalGrad)"/>
-  <rect x="48" y="166" width="10" height="14" rx="2" fill="url(#metalGrad)"/>
-
-  <!-- Bolts (locking mechanism indication) -->
-  <rect x="60" y="72" width="6" height="8" rx="1" fill="url(#metalGrad)"/>
-  <rect x="60" y="176" width="6" height="8" rx="1" fill="url(#metalGrad)"/>
-  <rect x="190" y="72" width="6" height="8" rx="1" fill="url(#metalGrad)"/>
-  <rect x="190" y="176" width="6" height="8" rx="1" fill="url(#metalGrad)"/>
-
-  <!-- Subtle highlight on top of vault body -->
-  <rect x="56" y="56" width="144" height="8" rx="4" fill="#ffffff" opacity="0.15"/>
+  <!-- Wordmark: p r v  (r highlighted in accent blue) -->
+  <text x="130" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="56" font-weight="700" fill="#e6edf3" letter-spacing="-2">
+    <tspan>p</tspan><tspan fill="#58a6ff">r</tspan><tspan>v</tspan>
+  </text>
 </svg>
