@@ -26,6 +26,18 @@ You tweak a prompt 40 times a day. You paste it into ChatGPT, it kind of works, 
 
 prv fixes this. It's `git`, but purpose-built for prompts.
 
+## 🖼️ Web GUI preview
+
+Launch the built-in Web GUI with `pv serve`, then open `http://127.0.0.1:6174` in your browser.
+
+| Overview | Content tab | Render tab |
+|:---:|:---:|:---:|
+| ![Overview](docs/screenshots/gui-overview.png) | ![Content](docs/screenshots/gui-content.png) | ![Render](docs/screenshots/gui-render.png) |
+
+| Rendered output | Metrics dashboard | History (diff) |
+|:---:|:---:|:---:|
+| ![Render Output](docs/screenshots/gui-render-output.png) | ![Metrics](docs/screenshots/gui-metrics.png) | ![History](docs/screenshots/gui-history.png) |
+
 ```bash
 pv add prompts/summarize.md
 pv commit -m "refine: summarize now reports tone + title"
@@ -139,18 +151,6 @@ $ pv commit -m "feat: initial prompt set"
 [main 4100199] feat: initial prompt set
  3 prompts
 ```
-
-## 🖼️ Web GUI screenshots
-
-Launch the built-in Web GUI with `pv serve`, then open `http://127.0.0.1:6174` in your browser.
-
-| Overview | Content tab | Render tab |
-|:---:|:---:|:---:|
-| ![Overview](docs/screenshots/gui-overview.png) | ![Content](docs/screenshots/gui-content.png) | ![Render](docs/screenshots/gui-render.png) |
-
-| Rendered output | Metrics dashboard | History (diff) |
-|:---:|:---:|:---:|
-| ![Render Output](docs/screenshots/gui-render-output.png) | ![Metrics](docs/screenshots/gui-metrics.png) | ![History](docs/screenshots/gui-history.png) |
 
 Now iterate and see what changed:
 
