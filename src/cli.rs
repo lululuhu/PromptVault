@@ -360,6 +360,28 @@ pub enum Command {
         #[arg(short, long)]
         out: Option<PathBuf>,
     },
+
+    /// Import prompts from an external source (e.g. a ChatGPT data export)
+    Import {
+        /// Import source: `chatgpt` (expects a `conversations.json` export)
+        #[arg(long, value_name = "SOURCE")]
+        from: String,
+
+        /// Path to the export file (e.g. `conversations.json`)
+        source: PathBuf,
+
+        /// Output directory inside the vault (default: `prompts/imported`)
+        #[arg(short, long, value_name = "DIR")]
+        dir: Option<PathBuf>,
+
+        /// Only import prompts with at least this many characters (default: 20)
+        #[arg(long, value_name = "N", default_value_t = 20)]
+        min_length: usize,
+
+        /// Stage imported prompts after writing (does not commit)
+        #[arg(long)]
+        add: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]

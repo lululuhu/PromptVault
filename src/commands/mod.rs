@@ -14,6 +14,7 @@ pub mod eval_log;
 pub mod export;
 pub mod grep;
 pub mod ignore;
+pub mod import;
 pub mod init;
 pub mod list;
 pub mod log;

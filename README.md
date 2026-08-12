@@ -83,6 +83,7 @@ pv log           # walk back through every iteration
 - **Remote sync** — `pv remote add origin <url>` then `pv push` / `pv pull` syncs the vault to any git host (GitHub, GitLab, Gitea…). No servers, no accounts.
 - **TUI** — `pv tui` launches an interactive commit browser (arrow keys to navigate, `q` to quit).
 - **Shell completions** — `pv completions bash/zsh/fish` prints a completion script for your shell.
+- **Import from ChatGPT** — `pv import --from chatgpt conversations.json` pulls the first user message from each conversation in a ChatGPT data export into the vault as standalone prompt files. `--add` stages them, `--min-length N` filters out noise. Migrate your existing prompt library in one step.
 - **Model runner** *(optional, `--features run`)* — `pv run` renders a prompt and sends it to OpenAI, Anthropic, or Ollama. **API keys live only in env vars; nothing is ever logged or stored.**
 - **A/B testing** — `pv ab main:s.md experiment:s.md -d cases.jsonl` renders two prompt versions against the same dataset and diffs them line by line. Pure local, no model calls.
 - **Evals** — three modes, progressively more powerful:
@@ -419,6 +420,23 @@ $ pv run prompts/summarize.md --var text="..."
 
 Available magic variables: `{{date}}`, `{{time}}`, `{{datetime}}`, `{{timestamp}}`, `{{iso8601}}`, `{{year}}`, `{{month}}`, `{{day}}`, `{{hour}}`, `{{minute}}`, `{{second}}`, `{{os}}`, `{{uuid}}`, `{{random:N}}`.
 
+### Import prompts from ChatGPT
+
+Export your data from ChatGPT (Settings → Data Controls → Export), unzip it, then:
+
+```bash
+$ pv import --from chatgpt ~/Downloads/chatgpt/conversations.json --add
+imported: prompts/imported/summarize-long-articles.md
+imported: prompts/imported/code-review-prompt.md
+
+Imported 2 prompts from 3 conversations (skipped 1)
+  Run `pv commit -m "..."` to snapshot the imports.
+
+$ pv commit -m "import: chatgpt prompts"
+```
+
+Each conversation's first user message becomes a standalone prompt file, titled after the conversation. `--min-length N` (default 20) filters out throwaway messages; `--dir` controls the output folder.
+
 ## 🧭 Commands
 
 | Command | What it does |
@@ -455,6 +473,7 @@ Available magic variables: `{{date}}`, `{{time}}`, `{{datetime}}`, `{{timestamp}
 | `pv stats` | Show vault statistics (commits, blobs, branches, disk usage). |
 | `pv blame <path>` | Show which commit last touched each line of a prompt. |
 | `pv config get/set/list` | Read / write repository config (e.g. `pv config set author Alice`). |
+| `pv import --from chatgpt <file>` | Import prompts from a ChatGPT data export (`conversations.json`). Flags: `--dir DIR`, `--min-length N`, `--add` (stage after writing). |
 
 ## 🏗️ How it works
 
@@ -473,14 +492,24 @@ Every prompt version is a **blob** addressed by the SHA-256 of `blob\0<content>`
 
 ## 🆚 How it compares
 
-| | prv | git | PromptLayer / LangSmith | A `prompts/` folder |
-|---|---|---|---|---|
-| Version history | ✅ | ✅ (but mixes with code) | ✅ (cloud) | ❌ |
-| Prompt-aware diff | ✅ | ✅ | ⚠️ | ❌ |
-| Local / offline | ✅ | ✅ | ❌ | ✅ |
-| Zero setup, no account | ✅ | ✅ | ❌ | ✅ |
-| Built for iterate-and-compare | ✅ | ❌ | ✅ | ❌ |
-| Free, self-hosted, private | ✅ | ✅ | ❌ | ✅ |
+| | prv | git | Promptfoo | LangSmith | A `prompts/` folder |
+|---|---|---|---|---|---|
+| Prompt version history | ✅ | ✅ *(mixes with code)* | ❌ | ✅ *(cloud)* | ❌ |
+| Prompt-aware diff | ✅ | ✅ | ❌ | ⚠️ | ❌ |
+| Branches / A-B experiments | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Render-only evals (no model) | ✅ | ❌ | ✅ | ❌ | ❌ |
+| LLM-output & LLM-judge evals | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Eval history + trend tracking | ✅ | ❌ | ⚠️ | ✅ | ❌ |
+| Token count + cost estimation | ✅ | ❌ | ⚠️ | ✅ | ❌ |
+| Prompt metrics & health score | ✅ | ❌ | ❌ | ⚠️ | ❌ |
+| Magic vars / includes / partials | ✅ | ❌ | ❌ | ❌ | ❌ |
+| OpenAI-compatible endpoint | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Web GUI (no build step) | ✅ | ❌ | ✅ | ✅ | ❌ |
+| Local / offline first | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Zero setup, no account | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Free & self-hosted | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Single static binary | ✅ | ✅ | ❌ *(Node)* | ❌ *(SaaS)* | ✅ |
+| Language | Rust | C | Node/TS | Python/TS | — |
 
 ## 🗺️ Roadmap
 

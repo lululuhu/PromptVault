@@ -108,6 +108,9 @@ fn run() -> anyhow::Result<()> {
             }
         },
         Command::Completions { shell, out } => commands::completions::run(&shell, out),
+        Command::Import { from, source, dir, min_length, add } => {
+            commands::import::run(&from, &source, dir.as_deref(), min_length, add)
+        }
     }
 }
 
