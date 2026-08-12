@@ -30,13 +30,29 @@ prv fixes this. It's `git`, but purpose-built for prompts.
 
 Launch the built-in Web GUI with `pv serve`, then open `http://127.0.0.1:6174` in your browser.
 
-| Overview | Content tab | Render tab |
-|:---:|:---:|:---:|
-| ![Overview](docs/screenshots/gui-overview.png) | ![Content](docs/screenshots/gui-content.png) | ![Render](docs/screenshots/gui-render.png) |
+<p align="center">
+  <img src="docs/screenshots/gui-overview.png" alt="Overview — prompt browser + sidebar">
+</p>
 
-| Rendered output | Metrics dashboard | History (diff) |
-|:---:|:---:|:---:|
-| ![Render Output](docs/screenshots/gui-render-output.png) | ![Metrics](docs/screenshots/gui-metrics.png) | ![History](docs/screenshots/gui-history.png) |
+<p align="center"><sub>Content tab — syntax-highlighted prompt template with magic vars and includes</sub></p>
+<p align="center">
+  <img src="docs/screenshots/gui-content.png" width="780" alt="Content tab">
+</p>
+
+<p align="center"><sub>Render tab — inline variable editor + rendered output</sub></p>
+<p align="center">
+  <img src="docs/screenshots/gui-render-output.png" width="780" alt="Render tab with output">
+</p>
+
+<p align="center"><sub>Metrics tab — token count, health score ring, context window bars, cost comparison chart</sub></p>
+<p align="center">
+  <img src="docs/screenshots/gui-metrics.png" width="780" alt="Metrics dashboard">
+</p>
+
+<p align="center"><sub>History tab — line-by-line version diff between any two commits</sub></p>
+<p align="center">
+  <img src="docs/screenshots/gui-history.png" width="780" alt="History diff viewer">
+</p>
 
 ```bash
 pv add prompts/summarize.md
