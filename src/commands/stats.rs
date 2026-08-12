@@ -33,7 +33,7 @@ pub fn run() -> Result<()> {
     // Disk usage of .pv/objects
     let obj_bytes = dir_size(&repo.pv_dir.join("objects"));
 
-    println!("{}", printer::bold("PromptVault stats"));
+    println!("{}", printer::bold("prv stats"));
     println!("  commits:        {}", commits);
     println!("  blobs (unique): {}", blobs.len());
     println!("  trees (unique): {}", trees.len());

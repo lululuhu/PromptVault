@@ -37,7 +37,7 @@ pub fn set(key: &str, value: &str) -> Result<()> {
     map.insert(key.to_string(), value.to_string());
 
     let mut text = String::new();
-    text.push_str("# PromptVault repository config\n");
+    text.push_str("# prv repository config\n");
     for (k, v) in &map {
         text.push_str(&format!("{k} = {v}\n"));
     }

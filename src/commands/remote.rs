@@ -1,6 +1,6 @@
 //! Remote sync via a nested git repo inside `.pv/`.
 //!
-//! Design: PromptVault stores its content-addressed objects under `.pv/`.
+//! Design: prv stores its content-addressed objects under `.pv/`.
 //! To sync, we initialize `.pv/` itself as a git repo, commit the objects,
 //! and push/pull to any git remote. This avoids native libgit2 dependencies
 //! and works with any git host (GitHub, GitLab, Gitea, a bare repo, …).
@@ -171,7 +171,7 @@ fn ensure_git_init(pv_dir: &std::path::Path) -> Result<()> {
     if !pv_dir.join(".git").exists() {
         run_git(pv_dir, &["init", "--quiet"])?;
         run_git(pv_dir, &["config", "user.email", "pv@local"])?;
-        run_git(pv_dir, &["config", "user.name", "PromptVault"])?;
+        run_git(pv_dir, &["config", "user.name", "prv"])?;
         // The index.json may conflict with git's own index; ignore it from sync
         // to avoid confusion — it gets rebuilt from objects on next operation anyway.
         let ignore = "index.json\n";

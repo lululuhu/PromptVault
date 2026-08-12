@@ -76,7 +76,7 @@ pub fn run(branch: &str) -> Result<()> {
 
     if merged.conflicts.is_empty() {
         // No conflicts: create a merge commit with two parents.
-        // We store only the first parent in the commit object (PromptVault's
+        // We store only the first parent in the commit object (prv's
         // commit format has a single parent field), and record the second
         // parent in the commit message for traceability.
         apply_tree(&repo, &cur_tree, &merged.entries)?;

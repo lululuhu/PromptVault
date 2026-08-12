@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>prv — Prove your prompts</title>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --bg-soft: #0f141c;
+    --bg-elev: #151b25;
+    --bg-hover: #1c2330;
+    --bg-glass: rgba(15, 20, 28, 0.72);
+    --border: #1f2937;
+    --border-soft: #161e2a;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-faint: #6e7681;
+    --accent: #58a6ff;
+    --accent-soft: rgba(88, 166, 255, 0.12);
+    --purple: #bc8cff;
+    --purple-soft: rgba(188, 140, 255, 0.12);
+    --green: #3fb950;
+    --green-soft: rgba(63, 185, 80, 0.12);
+    --red: #ff7b72;
+    --red-soft: rgba(255, 123, 114, 0.12);
+    --yellow: #e3b341;
+    --yellow-soft: rgba(227, 179, 65, 0.12);
+    --orange: #ff9a5c;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    --shadow: 0 1px 0 rgba(255,255,255,0.04) inset, 0 1px 3px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--sans);
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(88,166,255,0.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(188,140,255,0.05), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    grid-template-rows: 56px 1fr;
+    height: 100vh;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px) saturate(140%);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 10;
+  }
+  .logo {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.01em;
+  }
+  .logo .mark {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 16px rgba(88,166,255,0.4);
+  }
+  .logo .mark svg { width: 16px; height: 16px; color: white; }
+  .logo .name { color: var(--text); }
+  .logo .name b { color: var(--accent); }
+  .tagline {
+    color: var(--text-faint);
+    font-size: 12px;
+    padding-left: 14px;
+    border-left: 1px solid var(--border);
+  }
+  .header-spacer { flex: 1; }
+
+  .stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-family: var(--mono);
+    color: var(--text-dim);
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .stat-chip .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); }
+  .stat-chip.tokens .dot { background: var(--accent); }
+  .stat-chip.cost .dot { background: var(--green); }
+  .stat-chip strong { color: var(--text); font-weight: 600; }
+  .stat-chip:hover { border-color: var(--text-faint); color: var(--text); }
+
+  .cmdk-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px 6px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.12s;
+    min-width: 200px;
+  }
+  .cmdk-trigger:hover { border-color: var(--text-faint); color: var(--text); }
+  .cmdk-trigger .ph { flex: 1; text-align: left; }
+  .cmdk-trigger .kbd { font-size: 10px; }
+
+  .btn {
+    background: var(--bg-elev);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--sans);
+    transition: all 0.12s ease;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { background: var(--bg-hover); border-color: var(--text-faint); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary {
+    background: var(--accent);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 0 0 1px rgba(88,166,255,0.3), 0 4px 12px rgba(88,166,255,0.25);
+  }
+  .btn.primary:hover { background: #4990e8; }
+  .btn.ghost { background: transparent; }
+  .btn.icon-only { padding: 7px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .kbd {
+    display: inline-block;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: var(--mono);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  /* ===== Sidebar ===== */
+  .sidebar {
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-search {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-soft);
+    position: sticky;
+    top: 0;
+    background: var(--bg-soft);
+    z-index: 2;
+  }
+  .sidebar-search input {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 10px 7px 30px;
+    font-size: 12px;
+    font-family: var(--sans);
+    outline: none;
+    transition: border-color 0.15s;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236e7681' stroke-width='2.5' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><path d='m21 21-4.3-4.3'/></svg>");
+    background-repeat: no-repeat;
+    background-position: 9px center;
+  }
+  .sidebar-search input:focus { border-color: var(--accent); }
+  .sidebar-section {
+    padding: 14px 14px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-section .count {
+    font-family: var(--mono);
+    font-weight: 500;
+    color: var(--text-faint);
+    background: var(--bg-elev);
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+  .prompt-item {
+    padding: 7px 14px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    border-left: 2px solid transparent;
+    transition: all 0.1s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+  }
+  .prompt-item:hover { background: var(--bg-hover); color: var(--text); }
+  .prompt-item.active {
+    background: var(--accent-soft);
+    border-left-color: var(--accent);
+    color: var(--text);
+  }
+  .prompt-item .icon {
+    width: 14px; height: 14px; flex-shrink: 0; color: var(--text-faint);
+  }
+  .prompt-item.active .icon { color: var(--accent); }
+  .prompt-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .prompt-item .tk {
+    font-size: 9px;
+    color: var(--text-faint);
+    background: var(--bg-elev);
+    padding: 1px 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+  .prompt-item.commit .msg {
+    font-family: var(--sans);
+    font-size: 11px;
+    color: var(--text-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .prompt-item.commit .hash {
+    color: var(--accent);
+    font-size: 11px;
+    font-family: var(--mono);
+    flex-shrink: 0;
+  }
+
+  /* ===== Main ===== */
+  .main {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .toolbar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-soft);
+  }
+  .prompt-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .prompt-hash {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    background: var(--bg-elev);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+  .tabs {
+    margin-left: auto;
+    display: flex;
+    gap: 2px;
+    background: var(--bg);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .tab {
+    padding: 5px 12px;
+    font-size: 12px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.12s;
+    font-weight: 500;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--text);
+    background: var(--bg-elev);
+    box-shadow: var(--shadow);
+  }
+
+  .content {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+    position: relative;
+  }
+  .prompt-content {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    max-width: 980px;
+    position: relative;
+  }
+  .prompt-content .tok-var { color: var(--accent); }
+  .prompt-content .tok-magic { color: var(--yellow); }
+  .prompt-content .tok-include { color: var(--purple); font-weight: 600; }
+  .prompt-content .tok-comment { color: var(--text-faint); font-style: italic; }
+  .prompt-content .tok-h1 { color: var(--text); font-weight: 700; font-size: 15px; }
+  .prompt-content .tok-h2 { color: var(--text); font-weight: 600; }
+
+  .copy-btn {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-family: var(--sans);
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s;
+  }
+  .prompt-content:hover .copy-btn,
+  .output-box:hover + .copy-btn { opacity: 1; }
+  .copy-btn:hover { color: var(--text); border-color: var(--text-faint); }
+  .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+  .empty {
+    color: var(--text-faint);
+    text-align: center;
+    padding: 80px 20px;
+    font-size: 13px;
+  }
+  .empty .big {
+    font-size: 32px;
+    margin-bottom: 12px;
+    opacity: 0.5;
+  }
+  .empty code {
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  /* ===== Cards / panels ===== */
+  .card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    max-width: 980px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .hint {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-faint);
+    margin-left: auto;
+    font-size: 11px;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+  .metric {
+    background: var(--bg-elev);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .metric .label {
+    font-size: 10px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .metric .value {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .metric .value .unit {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-weight: 500;
+    margin-left: 4px;
+  }
+  .metric .sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 4px;
+    font-family: var(--mono);
+  }
+  .metric.accent .value { color: var(--accent); }
+  .metric.green .value { color: var(--green); }
+  .metric.yellow .value { color: var(--yellow); }
+  .metric.purple .value { color: var(--purple); }
+  .metric.red .value { color: var(--red); }
+
+  /* ===== Render / Playground ===== */
+  .editor-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  textarea.code {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    min-height: 120px;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  textarea.code:focus { border-color: var(--accent); }
+  .output-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 120px;
+    color: var(--green);
+    overflow: auto;
+    position: relative;
+  }
+  .output-box.error { color: var(--red); }
+  .output-box.idle { color: var(--text-faint); font-style: italic; }
+  .row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .row label { font-size: 11px; color: var(--text-dim); font-weight: 600; min-width: 70px; }
+  select, input.text {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: var(--sans);
+    outline: none;
+  }
+  select:focus, input.text:focus { border-color: var(--accent); }
+  input.text.mono { font-family: var(--mono); }
+
+  /* ===== Inline variable editor ===== */
+  .var-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 8px 12px;
+    align-items: center;
+  }
+  .var-key {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .var-key .braces { color: var(--text-faint); }
+  .var-input {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-family: var(--mono);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .var-input:focus { border-color: var(--accent); }
+  .var-input::placeholder { color: var(--text-faint); }
+  .var-magic-list, .var-include-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .var-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 5px;
+  }
+  .var-tag.magic { background: var(--yellow-soft); color: var(--yellow); }
+  .var-tag.inc { background: var(--purple-soft); color: var(--purple); }
+
+  /* ===== Diff viewer ===== */
+  .diff-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .diff-view {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.6;
+    max-height: 560px;
+    overflow-y: auto;
+  }
+  .diff-line {
+    display: flex;
+    padding: 0 8px;
+    white-space: pre;
+  }
+  .diff-line .ln {
+    width: 44px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 10px;
+    color: var(--text-faint);
+    user-select: none;
+    border-right: 1px solid var(--border-soft);
+    margin-right: 8px;
+  }
+  .diff-line .txt { overflow-x: auto; }
+  .diff-line.add { background: var(--green-soft); }
+  .diff-line.add .txt { color: var(--green); }
+  .diff-line.del { background: var(--red-soft); }
+  .diff-line.del .txt { color: var(--red); }
+  .diff-line.ctx .txt { color: var(--text-dim); }
+  .diff-line.hunk { background: var(--accent-soft); color: var(--accent); padding: 4px 8px; }
+
+  /* ===== Commits / Evals ===== */
+  .commit-list { list-style: none; }
+  .commit-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .commit-item:last-child { border-bottom: none; }
+  .commit-msg { font-size: 13px; color: var(--text); margin-bottom: 4px; }
+  .commit-meta { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .commit-hash { color: var(--accent); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: var(--mono);
+  }
+  .badge-green { background: var(--green-soft); color: var(--green); }
+  .badge-blue { background: var(--accent-soft); color: var(--accent); }
+  .badge-yellow { background: var(--yellow-soft); color: var(--yellow); }
+  .badge-red { background: var(--red-soft); color: var(--red); }
+  .badge-purple { background: var(--purple-soft); color: var(--purple); }
+
+  /* ===== Tables ===== */
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  table.data th, table.data td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  table.data th {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+  table.data td.num { font-family: var(--mono); text-align: right; }
+  table.data tr:hover td { background: var(--bg-elev); }
+
+  /* progress bar */
+  .progress {
+    height: 8px;
+    background: var(--bg-elev);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+  }
+  .progress > div {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* ===== Context window bar ===== */
+  .ctx-bar {
+    margin: 6px 0 2px;
+  }
+  .ctx-bar .bar {
+    height: 22px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border-soft);
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+  }
+  .ctx-bar .fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: rgba(0,0,0,0.7);
+    font-weight: 700;
+    min-width: 32px;
+  }
+  .ctx-bar .fill.low { background: var(--green); }
+  .ctx-bar .fill.mid { background: var(--yellow); }
+  .ctx-bar .fill.high { background: var(--red); }
+  .ctx-bar .meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  /* ===== Cost chart ===== */
+  .cost-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 140px;
+    padding: 10px 4px 0;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .cost-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  .cost-bar .bar-fill {
+    width: 100%;
+    max-width: 48px;
+    background: linear-gradient(180deg, var(--accent), rgba(88,166,255,0.4));
+    border-radius: 4px 4px 0 0;
+    transition: height 0.5s ease;
+    min-height: 2px;
+    position: relative;
+  }
+  .cost-bar:hover .bar-fill { background: linear-gradient(180deg, var(--purple), rgba(188,140,255,0.4)); }
+  .cost-bar .bar-val {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .cost-bar .bar-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text-faint);
+    text-align: center;
+    word-break: break-all;
+    line-height: 1.2;
+    max-width: 60px;
+  }
+
+  /* ===== Health score ring ===== */
+  .health-ring {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .health-ring svg { flex-shrink: 0; }
+  .health-ring .desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+  .health-ring .desc b { color: var(--text); }
+  .tip-list { list-style: none; margin-top: 8px; }
+  .tip-list li {
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 4px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .tip-list li::before { content: '→'; color: var(--accent); flex-shrink: 0; }
+
+  /* ===== Toast ===== */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--text);
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+    max-width: 340px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { border-color: var(--red); }
+
+  /* ===== Command palette ===== */
+  #cmdk {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+    z-index: 1100;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
+  }
+  #cmdk.show { display: flex; }
+  .cmdk-box {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    width: 560px;
+    max-width: 92vw;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .cmdk-input-wrap {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .cmdk-input-wrap svg { color: var(--text-faint); flex-shrink: 0; }
+  #cmdk-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 15px;
+    font-family: var(--sans);
+    outline: none;
+  }
+  #cmdk-input::placeholder { color: var(--text-faint); }
+  .cmdk-list {
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+  .cmdk-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .cmdk-item:hover, .cmdk-item.sel { background: var(--bg-elev); color: var(--text); }
+  .cmdk-item .ic { width: 16px; height: 16px; flex-shrink: 0; color: var(--text-faint); }
+  .cmdk-item:hover .ic, .cmdk-item.sel .ic { color: var(--accent); }
+  .cmdk-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmdk-item .sub { font-size: 11px; color: var(--text-faint); font-family: var(--mono); }
+  .cmdk-group {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-faint);
+  }
+  .cmdk-empty {
+    padding: 30px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+
+  /* ===== Help overlay ===== */
+  #help-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  #help-overlay.show { display: flex; }
+  .help-card {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    width: 480px;
+    box-shadow: var(--shadow-lg);
+  }
+  .help-card h3 { font-size: 16px; margin-bottom: 16px; }
+  .help-card .row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-soft); margin: 0; }
+  .help-card .row:last-child { border-bottom: none; }
+  .help-card .row span:first-child { color: var(--text-dim); font-size: 12px; }
+  .help-card .row span:last-child { display: flex; gap: 4px; }
+
+  /* ===== Scrollbar ===== */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; border: 2px solid var(--bg); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-elev) 25%, var(--bg-hover) 50%, var(--bg-elev) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 6px;
+    height: 14px;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  @media (max-width: 900px) {
+    .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    .editor-row { grid-template-columns: 1fr; }
+    .var-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="logo">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
+          <path d="m2 17 10 5 10-5"/>
+          <path d="m2 12 10 5 10-5"/>
+        </svg>
+      </div>
+      <span class="name">p<b>r</b>v</span>
+    </div>
+    <span class="tagline">Prove your prompts</span>
+    <div class="header-spacer"></div>
+    <div id="header-stats" style="display:flex; gap:8px;"></div>
+    <div class="cmdk-trigger" onclick="openCmdk()" title="Command palette (Cmd/Ctrl+K)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <span class="ph">Search or jump…</span>
+      <span class="kbd">⌘K</span>
+    </div>
+    <button class="btn ghost icon-only" onclick="toggleHelp()" title="Keyboard shortcuts (?)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+    </button>
+    <button class="btn icon-only" onclick="loadAll()" title="Refresh (r)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+    </button>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-search">
+      <input type="text" id="search" placeholder="Search prompts…" oninput="filterPrompts()">
+    </div>
+    <div class="sidebar-section">Prompts <span class="count" id="prompt-count">0</span></div>
+    <div id="prompt-list"></div>
+    <div class="sidebar-section">Recent commits <span class="count" id="commit-count">0</span></div>
+    <div id="commit-list"></div>
+  </div>
+
+  <div class="main">
+    <div class="toolbar">
+      <span class="prompt-name" id="current-prompt">—</span>
+      <span class="prompt-hash" id="current-hash"></span>
+      <div class="tabs">
+        <span class="tab active" data-tab="content" onclick="switchTab('content')">Content</span>
+        <span class="tab" data-tab="render" onclick="switchTab('render')">Render</span>
+        <span class="tab" data-tab="playground" onclick="switchTab('playground')">Playground</span>
+        <span class="tab" data-tab="history" onclick="switchTab('history')">History</span>
+        <span class="tab" data-tab="evals" onclick="switchTab('evals')">Evals</span>
+        <span class="tab" data-tab="metrics" onclick="switchTab('metrics')">Metrics</span>
+      </div>
+    </div>
+    <div class="content" id="content-area">
+      <div class="empty">
+        <div class="big">▲</div>
+        Select a prompt from the sidebar to begin.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- Command Palette -->
+<div id="cmdk" onclick="if(event.target===this)closeCmdk()">
+  <div class="cmdk-box">
+    <div class="cmdk-input-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="cmdk-input" placeholder="Search prompts, jump to tab, run command…" oninput="renderCmdk()" autofocus>
+    </div>
+    <div class="cmdk-list" id="cmdk-list"></div>
+  </div>
+</div>
+
+<div id="help-overlay" onclick="if(event.target===this)toggleHelp()">
+  <div class="help-card">
+    <h3>Keyboard shortcuts</h3>
+    <div class="row"><span>Command palette</span><span><span class="kbd">⌘K</span></span></div>
+    <div class="row"><span>Refresh data</span><span><span class="kbd">r</span></span></div>
+    <div class="row"><span>Search prompts</span><span><span class="kbd">/</span></span></div>
+    <div class="row"><span>Next prompt</span><span><span class="kbd">j</span></span></div>
+    <div class="row"><span>Previous prompt</span><span><span class="kbd">k</span></span></div>
+    <div class="row"><span>Switch to Content</span><span><span class="kbd">1</span></span></div>
+    <div class="row"><span>Switch to Render</span><span><span class="kbd">2</span></span></div>
+    <div class="row"><span>Switch to Playground</span><span><span class="kbd">3</span></span></div>
+    <div class="row"><span>Switch to History</span><span><span class="kbd">4</span></span></div>
+    <div class="row"><span>Switch to Evals</span><span><span class="kbd">5</span></span></div>
+    <div class="row"><span>Switch to Metrics</span><span><span class="kbd">6</span></span></div>
+    <div class="row"><span>Render prompt (in Render tab)</span><span><span class="kbd">⏎</span></span></div>
+    <div class="row"><span>Show / hide this help</span><span><span class="kbd">?</span></span></div>
+    <div class="row"><span>Close overlay</span><span><span class="kbd">Esc</span></span></div>
+  </div>
+</div>
+
+<script>
+let currentPrompt = null;
+let currentTab = 'content';
+let currentContent = '';        // raw template of selected prompt
+let promptNames = [];           // ordered list of all prompt names
+let promptTokens = {};          // name -> token count (for sidebar badges)
+let commitListCache = [];       // recent commits
+let historyCache = [];          // history for selected prompt
+let cmdkItems = [];             // filtered command palette items
+let cmdkSel = 0;                // selected index in command palette
+
+// ---------- API ----------
+async function api(path, opts = {}) {
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ error: r.statusText }));
+    throw new Error(e.error || r.statusText);
+  }
+  return r.json();
+}
+
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.toggle('error', isError);
+  el.classList.add('show');
+  clearTimeout(window._toast_t);
+  window._toast_t = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function copyText(text, btnEl) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (btnEl) {
+      const orig = btnEl.textContent;
+      btnEl.textContent = '✓ copied';
+      btnEl.classList.add('copied');
+      setTimeout(() => { btnEl.textContent = orig; btnEl.classList.remove('copied'); }, 1400);
+    }
+    toast('Copied to clipboard.');
+  } catch {
+    toast('Clipboard not available.', true);
+  }
+}
+
+// Tiny prompt-template syntax highlighter.
+function highlightPrompt(text) {
+  const MAGIC = new Set(['date','time','datetime','timestamp','iso8601','year','month','day',
+    'hour','minute','second','os','cwd','uuid']);
+  let out = escapeHtml(text);
+  out = out.replace(/\{\{([^}]*)\}\}/g, (m, inner) => {
+    const name = inner.trim();
+    let cls = 'tok-var';
+    if (name.startsWith('include:')) cls = 'tok-include';
+    else if (MAGIC.has(name) || name.startsWith('random:')) cls = 'tok-magic';
+    return `<span class="${cls}">${m}</span>`;
+  });
+  out = out.replace(/^(\s*)(#.*)$/gm, (_, sp, c) => `${sp}<span class="tok-comment">${c}</span>`);
+  out = out.replace(/^(\s*)(#{1,2}\s.*)$/gm, (_, sp, h) =>
+    `${sp}<span class="tok-${h.trim().startsWith('# ') ? 'h1' : 'h2'}">${h}</span>`);
+  return out;
+}
+
+// ---------- Sidebar ----------
+async function loadAll() {
+  await Promise.all([loadPrompts(), loadCommits()]);
+}
+
+async function loadPrompts() {
+  try {
+    const prompts = await api('/v1/prompts');
+    promptNames = prompts.map(p => p.name);
+    document.getElementById('prompt-count').textContent = prompts.length;
+    renderPromptList(prompts);
+    // Fetch token counts in the background for sidebar badges.
+    fetchTokenBadges(prompts.map(p => p.name));
+  } catch (e) {
+    document.getElementById('prompt-list').innerHTML = `<div class="prompt-item" style="color:var(--red)">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function fetchTokenBadges(names) {
+  for (const name of names.slice(0, 40)) {
+    api('/v1/tokens?prompt=' + encodeURIComponent(name))
+      .then(t => { promptTokens[name] = t.rendered_tokens; updateTokenBadge(name); })
+      .catch(() => {});
+  }
+}
+
+function updateTokenBadge(name) {
+  const el = document.querySelector(`.prompt-item[data-name="${CSS.escape(name)}"] .tk`);
+  if (el && promptTokens[name] != null) {
+    el.textContent = promptTokens[name] >= 1000 ? (promptTokens[name]/1000).toFixed(1)+'k' : promptTokens[name];
+  }
+}
+
+function renderPromptList(prompts) {
+  const list = document.getElementById('prompt-list');
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const filtered = prompts.filter(p => !q || p.name.toLowerCase().includes(q));
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="prompt-item" style="color:var(--text-faint);cursor:default">${q ? 'No matches' : 'No prompts yet'}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(p => `
+    <div class="prompt-item ${p.name === currentPrompt ? 'active' : ''}" data-name="${escapeHtml(p.name)}" onclick="selectPrompt(${JSON.stringify(p.name).replace(/"/g,'&quot;')})">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="name">${escapeHtml(p.name)}</span>
+      <span class="tk"></span>
+    </div>
+  `).join('');
+  // Update any badges we already fetched.
+  filtered.forEach(p => { if (promptTokens[p.name] != null) updateTokenBadge(p.name); });
+}
+
+function filterPrompts() {
+  loadPrompts();
+}
+
+async function loadCommits() {
+  try {
+    const commits = await api('/v1/commits');
+    commitListCache = commits;
+    document.getElementById('commit-count').textContent = commits.length;
+    const list = document.getElementById('commit-list');
+    if (commits.length === 0) {
+      list.innerHTML = `<div class="prompt-item" style="color:var(--text-faint);cursor:default">No commits yet</div>`;
+      return;
+    }
+    list.innerHTML = commits.slice(0, 15).map(c => {
+      const short = c.hash.substring(0, 7);
+      const msg = (c.message || '').split('\n')[0];
+      return `<div class="prompt-item commit">
+        <span class="hash">${short}</span>
+        <span class="msg">${escapeHtml(msg)}</span>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    document.getElementById('commit-list').innerHTML = `<div class="prompt-item" style="color:var(--red)">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ---------- Selection ----------
+async function selectPrompt(name) {
+  currentPrompt = name;
+  document.querySelectorAll('.prompt-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.name === name);
+  });
+  document.getElementById('current-prompt').textContent = name;
+  document.getElementById('header-stats').innerHTML = '';
+  await loadTab();
+}
+
+async function loadTab() {
+  if (!currentPrompt) return;
+  const area = document.getElementById('content-area');
+  area.innerHTML = '<div class="empty"><div class="big">◌</div>Loading…</div>';
+
+  try {
+    if (currentTab === 'content')      await tabContent(area);
+    else if (currentTab === 'render')  await tabRender(area);
+    else if (currentTab === 'playground') await tabPlayground(area);
+    else if (currentTab === 'history') await tabHistory(area);
+    else if (currentTab === 'evals')   await tabEvals(area);
+    else if (currentTab === 'metrics') await tabMetrics(area);
+  } catch (e) {
+    area.innerHTML = `<div class="empty" style="color:var(--red)">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === tab);
+  });
+  loadTab();
+}
+
+// ---------- Tab: Content ----------
+async function tabContent(area) {
+  const p = await api('/v1/prompts/' + encodeURIComponent(currentPrompt));
+  currentContent = p.content || '';
+  document.getElementById('current-hash').textContent = (p.hash || '').substring(0, 12);
+  await updateHeaderStats();
+  area.innerHTML = `<div class="prompt-content" id="pc">${highlightPrompt(currentContent)}<button class="copy-btn" onclick="copyText(document.getElementById('pc-raw').textContent, this)">copy</button></div><textarea id="pc-raw" style="display:none">${escapeHtml(currentContent)}</textarea>`;
+}
+
+// ---------- Tab: Render (with inline variable editor) ----------
+async function tabRender(area) {
+  const [p, vars] = await Promise.all([
+    api('/v1/prompts/' + encodeURIComponent(currentPrompt)),
+    api('/v1/variables/' + encodeURIComponent(currentPrompt)),
+  ]);
+  currentContent = p.content || '';
+  document.getElementById('current-hash').textContent = (p.hash || '').substring(0, 12);
+  await updateHeaderStats();
+
+  const userVars = vars.user || [];
+  const magicVars = vars.magic || [];
+  const includes = vars.includes || [];
+
+  const varEditor = userVars.length > 0
+    ? `<div class="var-grid">${userVars.map(v => `
+        <div class="var-key"><span class="braces">{{</span>${escapeHtml(v)}<span class="braces">}}</span></div>
+        <input class="var-input" data-var="${escapeHtml(v)}" placeholder="value for ${escapeHtml(v)}" onkeydown="if(event.key==='Enter')doRender()">
+      `).join('')}</div>`
+    : `<div style="font-size:12px;color:var(--text-faint)">No user-defined variables in this prompt. Magic vars auto-resolve.</div>`;
+
+  const magicTags = magicVars.length > 0
+    ? `<div style="margin-top:14px"><div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Auto-resolved magic vars</div><div class="var-magic-list">${magicVars.map(m => `<span class="var-tag magic">{{${escapeHtml(m)}}}</span>`).join('')}</div></div>`
+    : '';
+
+  const includeTags = includes.length > 0
+    ? `<div style="margin-top:10px"><div style="font-size:11px;color:var(--text-faint);margin-bottom:4px">Includes</div><div class="var-include-list">${includes.map(i => `<span class="var-tag inc">{{${escapeHtml(i)}}}</span>`).join('')}</div></div>`
+    : '';
+
+  area.innerHTML = `
+    <div class="card">
+      <div class="card-title">Variables</div>
+      ${varEditor}
+      ${magicTags}
+      ${includeTags}
+      <div class="row" style="margin-top:14px;">
+        <button class="btn primary" onclick="doRender()">Render <span class="kbd">⏎</span></button>
+        <button class="btn ghost" onclick="tabRender(document.getElementById('content-area'));">Reset</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Rendered output</div>
+      <div class="output-box idle" id="render-out">Press Render to see the substituted prompt.</div>
+      <button class="copy-btn" style="position:absolute;top:10px;right:10px;opacity:1" onclick="copyText(document.getElementById('render-out').textContent, this)">copy</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Template</div>
+      <div class="prompt-content" id="render-tpl">${highlightPrompt(currentContent)}</div>
+    </div>
+  `;
+  // Focus the first var input.
+  const firstInput = document.querySelector('.var-input');
+  if (firstInput) firstInput.focus();
+}
+
+async function doRender() {
+  // Collect vars from inline editor.
+  const vars = {};
+  document.querySelectorAll('.var-input').forEach(inp => {
+    const k = inp.dataset.var;
+    const v = inp.value;
+    if (v) vars[k] = v;
+  });
+  const out = document.getElementById('render-out');
+  try {
+    const r = await api('/v1/prompts/' + encodeURIComponent(currentPrompt) + '/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(vars)
+    });
+    out.className = 'output-box';
+    out.textContent = r.content;
+    toast('Rendered.');
+  } catch (e) {
+    out.className = 'output-box error';
+    out.textContent = e.message;
+    toast(e.message, true);
+  }
+}
+
+// ---------- Tab: Playground ----------
+async function tabPlayground(area) {
+  const p = await api('/v1/prompts/' + encodeURIComponent(currentPrompt));
+  currentContent = p.content || '';
+  document.getElementById('current-hash').textContent = (p.hash || '').substring(0, 12);
+  await updateHeaderStats();
+  area.innerHTML = `
+    <div class="card">
+      <div class="card-title">Variables (JSON)</div>
+      <textarea class="code" id="pg-vars" placeholder='{"name":"Alice"}'>{}</textarea>
+    </div>
+    <div class="card">
+      <div class="card-title">Provider & model</div>
+      <div class="row">
+        <label>Provider</label>
+        <select id="pg-provider" onchange="onProviderChange()">
+          <option value="openai">openai</option>
+          <option value="anthropic">anthropic</option>
+          <option value="ollama">ollama (local)</option>
+        </select>
+        <label>Model</label>
+        <input class="text mono" id="pg-model" placeholder="(provider default)">
+        <label>Max tokens</label>
+        <input class="text mono" id="pg-max" type="number" value="512" style="width:90px">
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <button class="btn primary" onclick="pgSend()" id="pg-send">Send to LLM</button>
+        <span style="font-size:11px;color:var(--text-faint)">
+          Calls <code style="color:var(--accent)">POST /v1/chat/completions</code> with
+          <code style="color:var(--accent)">model=pv:${escapeHtml(currentPrompt)}</code>.
+          API keys must be in env vars on the server.
+        </span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">LLM response</div>
+      <div class="output-box idle" id="pg-out">Press "Send to LLM" to call the model.</div>
+      <button class="copy-btn" style="position:absolute;top:10px;right:10px;opacity:1" onclick="copyText(document.getElementById('pg-out').textContent, this)">copy</button>
+    </div>
+  `;
+  onProviderChange();
+}
+
+function onProviderChange() {
+  const prov = document.getElementById('pg-provider').value;
+  const defaults = { openai: 'gpt-4o-mini', anthropic: 'claude-3-5-sonnet-latest', ollama: 'llama3.2' };
+  const inp = document.getElementById('pg-model');
+  if (!inp.value) inp.placeholder = `(default: ${defaults[prov]})`;
+}
+
+async function pgSend() {
+  const varsText = document.getElementById('pg-vars').value;
+  const provider = document.getElementById('pg-provider').value;
+  const model = document.getElementById('pg-model').value.trim();
+  const maxTok = parseInt(document.getElementById('pg-max').value, 10);
+  const out = document.getElementById('pg-out');
+  const btn = document.getElementById('pg-send');
+  btn.disabled = true; btn.textContent = 'Sending…';
+  out.className = 'output-box idle'; out.textContent = 'Calling model…';
+  try {
+    const v = JSON.parse(varsText || '{}');
+    const body = {
+      model: 'pv:' + currentPrompt,
+      provider,
+      vars: v,
+      max_tokens: isNaN(maxTok) ? 512 : maxTok,
+    };
+    if (model) body.underlying_model = model;
+    const r = await api('/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    out.className = 'output-box';
+    out.textContent = r.choices?.[0]?.message?.content || JSON.stringify(r, null, 2);
+    toast('Got response.');
+  } catch (e) {
+    out.className = 'output-box error';
+    out.textContent = e.message;
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Send to LLM';
+  }
+}
+
+// ---------- Tab: History (real line-by-line diff) ----------
+async function tabHistory(area) {
+  const h = await api('/v1/prompts/' + encodeURIComponent(currentPrompt) + '/history');
+  historyCache = h;
+  if (h.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">⏱</div>No history yet for this prompt.</div>`;
+    return;
+  }
+  const opts = h.map((c, i) =>
+    `<option value="${i}">${c.hash.substring(0,7)} · ${escapeHtml((c.message||'').split('\n')[0])}</option>`).join('');
+  area.innerHTML = `
+    <div class="card">
+      <div class="card-title">Compare versions <span class="hint">line-by-line diff</span></div>
+      <div class="diff-controls">
+        <label style="font-size:11px;color:var(--text-dim);font-weight:600">A (older)</label>
+        <select id="diff-a" onchange="renderDiff()">${opts}</select>
+        <label style="font-size:11px;color:var(--text-dim);font-weight:600">B (newer)</label>
+        <select id="diff-b" onchange="renderDiff()">${opts}</select>
+        <button class="btn ghost" onclick="swapDiff()">swap</button>
+      </div>
+      <div class="diff-view" id="diff-view">
+        <div class="diff-line ctx"><span class="ln"></span><span class="txt" style="color:var(--text-faint)">Loading…</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All versions touching this prompt</div>
+      <ul class="commit-list">
+        ${h.map(c => `
+          <li class="commit-item">
+            <div class="commit-msg">${escapeHtml(c.message)}</div>
+            <div class="commit-meta">
+              <span class="commit-hash">${c.hash.substring(0,7)}</span>
+              ${c.author ? ' · ' + escapeHtml(c.author) : ''}
+              · ${new Date(c.timestamp * 1000).toLocaleString()}
+            </div>
+          </li>
+        `).join('')}
+      </ul>
+    </div>
+  `;
+  document.getElementById('diff-a').value = String(h.length - 1);
+  document.getElementById('diff-b').value = '0';
+  renderDiff();
+}
+
+function swapDiff() {
+  const a = document.getElementById('diff-a');
+  const b = document.getElementById('diff-b');
+  const t = a.value; a.value = b.value; b.value = t;
+  renderDiff();
+}
+
+async function renderDiff() {
+  const aIdx = parseInt(document.getElementById('diff-a').value, 10);
+  const bIdx = parseInt(document.getElementById('diff-b').value, 10);
+  if (isNaN(aIdx) || isNaN(bIdx)) return;
+  const a = historyCache[aIdx], b = historyCache[bIdx];
+  const view = document.getElementById('diff-view');
+  view.innerHTML = `<div class="diff-line ctx"><span class="ln"></span><span class="txt" style="color:var(--text-faint)">Loading blob content…</span></div>`;
+  try {
+    const [aContent, bContent] = await Promise.all([
+      contentAtCommit(a.hash),
+      contentAtCommit(b.hash),
+    ]);
+    view.innerHTML = renderLineDiff(aContent, bContent);
+  } catch (e) {
+    view.innerHTML = `<div class="diff-line ctx"><span class="ln"></span><span class="txt" style="color:var(--red)">${escapeHtml(e.message)}</span></div>`;
+  }
+}
+
+/// Fetch the prompt's content at a given commit via the objects endpoint.
+async function contentAtCommit(hash) {
+  const tree = await api('/v1/commits/' + hash + '/tree');
+  const entry = tree.find(e => e.path === currentPrompt);
+  if (!entry) return ''; // prompt didn't exist at this commit
+  const obj = await api('/v1/objects/' + entry.hash);
+  return obj.content || '';
+}
+
+/// Compute a Myers-style line diff and render it as HTML.
+function renderLineDiff(aText, bText) {
+  const aLines = aText.split('\n');
+  const bLines = bText.split('\n');
+  const diff = myersDiff(aLines, bLines);
+  let html = '';
+  let aLn = 0, bLn = 0;
+  for (const d of diff) {
+    if (d.type === 'ctx') {
+      aLn++; bLn++;
+      html += `<div class="diff-line ctx"><span class="ln">${aLn}</span><span class="txt">${escapeHtml(d.text)}</span></div>`;
+    } else if (d.type === 'add') {
+      bLn++;
+      html += `<div class="diff-line add"><span class="ln">${bLn}</span><span class="txt">+ ${escapeHtml(d.text)}</span></div>`;
+    } else if (d.type === 'del') {
+      aLn++;
+      html += `<div class="diff-line del"><span class="ln">${aLn}</span><span class="txt">- ${escapeHtml(d.text)}</span></div>`;
+    }
+  }
+  if (html === '') html = '<div class="diff-line ctx"><span class="ln"></span><span class="txt" style="color:var(--text-faint)">Versions are identical.</span></div>';
+  return html;
+}
+
+/// Simple LCS-based line diff (Myers variant). Returns array of {type, text}.
+function myersDiff(a, b) {
+  const n = a.length, m = b.length;
+  // dp[i][j] = LCS length of a[i:] and b[j:]
+  // Use bottom-up DP with rolling comparison.
+  const dp = Array.from({length: n + 1}, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) {
+    for (let j = m - 1; j >= 0; j--) {
+      if (a[i] === b[j]) dp[i][j] = dp[i+1][j+1] + 1;
+      else dp[i][j] = Math.max(dp[i+1][j], dp[i][j+1]);
+    }
+  }
+  // Backtrack to produce the diff.
+  const result = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) {
+      result.push({type: 'ctx', text: a[i]});
+      i++; j++;
+    } else if (dp[i+1][j] >= dp[i][j+1]) {
+      result.push({type: 'del', text: a[i]});
+      i++;
+    } else {
+      result.push({type: 'add', text: b[j]});
+      j++;
+    }
+  }
+  while (i < n) { result.push({type: 'del', text: a[i]}); i++; }
+  while (j < m) { result.push({type: 'add', text: b[j]}); j++; }
+  return result;
+}
+
+// ---------- Tab: Evals ----------
+async function tabEvals(area) {
+  const evals = await api('/v1/prompts/' + encodeURIComponent(currentPrompt) + '/evals');
+  if (evals.length === 0) {
+    area.innerHTML = `<div class="empty"><div class="big">📊</div>No evals yet.<br>Run <code>pv eval ${escapeHtml(currentPrompt)} -d cases.jsonl</code> to start.</div>`;
+    return;
+  }
+  const judged = evals.filter(e => e.mean_score !== null);
+  const scoreChart = judged.length > 0
+    ? renderScoreChart(judged.map(e => e.mean_score))
+    : '';
+  const totalPassed = evals.reduce((s,e)=>s+e.passed,0);
+  const totalCases = evals.reduce((s,e)=>s+e.total,0);
+  const passRate = totalCases > 0 ? Math.round(totalPassed / totalCases * 100) : 0;
+  const lastScore = judged.length > 0 ? judged[judged.length-1].mean_score : null;
+  const scoreColor = lastScore === null ? 'accent' : lastScore>=8?'green':lastScore>=5?'yellow':'red';
+  area.innerHTML = `
+    ${scoreChart}
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric accent"><div class="label">Total runs</div><div class="value">${evals.length}</div></div>
+      <div class="metric green"><div class="label">Pass rate</div><div class="value">${passRate}<span class="unit">%</span></div><div class="sub">${totalPassed}/${totalCases} cases</div></div>
+      <div class="metric ${scoreColor}"><div class="label">Latest judge</div><div class="value">${lastScore===null?'—':lastScore.toFixed(1)}<span class="unit">/10</span></div></div>
+      <div class="metric purple"><div class="label">Judged runs</div><div class="value">${judged.length}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Run history</div>
+      <ul class="commit-list">
+        ${evals.slice().reverse().map(e => {
+          const dt = new Date(e.ts * 1000).toLocaleString();
+          const pct = (e.passed / e.total * 100).toFixed(0);
+          const score = e.mean_score !== null
+            ? `<span class="badge ${e.mean_score>=8?'badge-green':e.mean_score>=5?'badge-yellow':'badge-red'}">${e.mean_score.toFixed(1)}/10</span>`
+            : '';
+          return `<li class="commit-item">
+            <div class="commit-meta">
+              <span class="badge badge-blue">${escapeHtml(e.mode)}</span>
+              · ${dt}
+              · ${e.passed}/${e.total} (${pct}%)
+              ${score}
+            </div>
+          </li>`;
+        }).join('')}
+      </ul>
+    </div>
+  `;
+}
+
+function renderScoreChart(scores) {
+  if (scores.length < 2) return '';
+  const w = 600, h = 160, pad = 30;
+  const max = 10;
+  const xStep = (w - pad * 2) / (scores.length - 1);
+  const yScale = (v) => h - pad - (v / max) * (h - pad * 2);
+  const points = scores.map((s, i) => `${pad + i * xStep},${yScale(s)}`).join(' ');
+  const lastScore = scores[scores.length - 1];
+  const lineHex = lastScore >= 8 ? '#3fb950' : lastScore >= 5 ? '#e3b341' : '#ff7b72';
+  return `
+    <div class="card">
+      <div class="card-title">Judge score trend</div>
+      <svg width="${w}" height="${h}" style="display:block;">
+        <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h-pad}" stroke="#1f2937"/>
+        <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#1f2937"/>
+        <text x="${pad-8}" y="${pad+4}" fill="#6e7681" font-size="10" text-anchor="end">10</text>
+        <text x="${pad-8}" y="${h-pad+4}" fill="#6e7681" font-size="10" text-anchor="end">0</text>
+        <polyline points="${points}" fill="none" stroke="${lineHex}" stroke-width="2"/>
+        ${scores.map((s, i) => `<circle cx="${pad + i * xStep}" cy="${yScale(s)}" r="3" fill="${lineHex}"/>`).join('')}
+      </svg>
+    </div>
+  `;
+}
+
+// ---------- Tab: Metrics (with context window viz + cost chart + health score) ----------
+async function tabMetrics(area) {
+  const m = await api('/v1/metrics?prompt=' + encodeURIComponent(currentPrompt));
+  const r = m.rendered;
+  const v = m.variables;
+  const costs = m.costs || [];
+  const fmt = (x) => x === 0 ? 'free' : `$${x.toFixed(x<0.01?6:4)}`;
+  const tok = r.tokens;
+  const method = r.method || {};
+  const readability = m.readability || {};
+  const complexity = m.complexity_score || 0;
+
+  // Context window visualizer: bar per model.
+  const ctxBars = costs.filter(c => !c.error && c.context_window).map(c => {
+    const pct = (tok / c.context_window) * 100;
+    const cls = pct < 10 ? 'low' : pct < 50 ? 'mid' : 'high';
+    const w = Math.min(100, pct);
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+        <span style="font-family:var(--mono);color:var(--text)">${escapeHtml(c.model)}</span>
+        <span style="font-family:var(--mono);color:var(--text-faint)">${tok.toLocaleString()} / ${c.context_window.toLocaleString()}</span>
+      </div>
+      <div class="ctx-bar"><div class="bar"><div class="fill ${cls}" style="width:${w}%">${pct.toFixed(1)}%</div></div></div>
+    </div>`;
+  }).join('');
+
+  // Cost comparison bar chart.
+  const validCosts = costs.filter(c => !c.error);
+  const maxCost = Math.max(...validCosts.map(c => c.total_cost_usd), 0.0001);
+  const costBars = validCosts.map(c => {
+    const h = Math.max(4, (c.total_cost_usd / maxCost) * 100);
+    return `<div class="cost-bar">
+      <div class="bar-val">${fmt(c.total_cost_usd)}</div>
+      <div class="bar-fill" style="height:${h}%" title="${escapeHtml(c.model)}: ${fmt(c.total_cost_usd)}/call"></div>
+      <div class="bar-label">${escapeHtml(c.model.split('-').slice(0,2).join('-'))}</div>
+    </div>`;
+  }).join('');
+
+  // Health score: simple heuristic.
+  const health = computeHealth(tok, v.user_count, v.magic_count, v.include_count, r.words);
+
+  area.innerHTML = `
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric accent">
+        <div class="label">Tokens (rendered)</div>
+        <div class="value">${tok}</div>
+        <div class="sub">${method.kind === 'exact' ? 'exact · ' + (method.encoding || '') : 'heuristic'}</div>
+      </div>
+      <div class="metric">
+        <div class="label">Chars / words</div>
+        <div class="value">${r.chars}<span class="unit"> / ${r.words} w</span></div>
+        <div class="sub">${r.lines} lines</div>
+      </div>
+      <div class="metric purple">
+        <div class="label">User variables</div>
+        <div class="value">${v.user_count}</div>
+        <div class="sub">${v.user && v.user.length ? v.user.map(x => '{{'+x+'}}').join(' ') : 'none'}</div>
+      </div>
+      <div class="metric yellow">
+        <div class="label">Magic / includes</div>
+        <div class="value">${v.magic_count}<span class="unit"> / ${v.include_count} inc</span></div>
+        <div class="sub">${v.include_count > 0 ? 'composed' : 'flat'}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Prompt health score</div>
+      <div class="health-ring">
+        ${healthRingSvg(health.score)}
+        <div class="desc">
+          <b>Score: ${health.score}/100</b> — ${health.grade}
+          <ul class="tip-list">
+            ${health.tips.map(t => `<li>${escapeHtml(t)}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    ${ctxBars ? `<div class="card">
+      <div class="card-title">Context window usage <span class="hint">${tok} input tokens vs model limit</span></div>
+      ${ctxBars}
+    </div>` : ''}
+
+    ${costBars ? `<div class="card">
+      <div class="card-title">Cost per call <span class="hint">assumed ${m.assumed_output_tokens} output tokens</span></div>
+      <div class="cost-chart">${costBars}</div>
+      <table class="data" style="margin-top:14px">
+        <thead><tr><th>Model</th><th class="num">Input cost</th><th class="num">Total cost</th><th class="num">Context</th></tr></thead>
+        <tbody>
+          ${costs.map(c => `
+            <tr>
+              <td style="font-family:var(--mono)">${escapeHtml(c.model)}</td>
+              <td class="num">${c.error ? '—' : fmt(c.input_cost_usd)}</td>
+              <td class="num">${c.error ? '—' : fmt(c.total_cost_usd)}</td>
+              <td class="num">${c.error ? '—' : (c.context_window ? c.context_window.toLocaleString() : '—')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    <div class="card">
+      <div class="card-title">Tip</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.7">
+        Get the same data in your terminal with <code style="color:var(--accent)">pv metrics ${escapeHtml(currentPrompt)}</code>
+        or as JSON with <code style="color:var(--accent)">pv metrics ${escapeHtml(currentPrompt)} --json</code>.
+        Use <code style="color:var(--accent)">pv tokens ${escapeHtml(currentPrompt)} --model gpt-4o</code> for token counts.
+      </div>
+    </div>
+  `;
+}
+
+/// Compute a prompt health score (0-100) with actionable tips.
+function computeHealth(tokens, userVars, magicVars, includes, words) {
+  let score = 100;
+  const tips = [];
+  if (tokens > 8000) { score -= 25; tips.push('Prompt is very long (>8k tokens). Consider extracting reusable parts into {{include:}} partials.'); }
+  else if (tokens > 4000) { score -= 12; tips.push('Prompt is fairly long (>4k tokens). Consider trimming or splitting.'); }
+  if (tokens < 10) { score -= 20; tips.push('Prompt is nearly empty. Add more context or instructions.'); }
+  if (userVars === 0 && tokens > 50) { score -= 10; tips.push('No variables detected. Parameterizing with {{name}} improves reusability.'); }
+  if (magicVars > 0) tips.push(`Uses ${magicVars} magic variable(s) — great for dynamic content.`);
+  if (includes > 0) tips.push(`Uses ${includes} include(s) — good composition pattern.`);
+  if (words > 0 && tokens / words > 2.0) { score -= 8; tips.push('High token-to-word ratio — may contain non-English text or code that inflates cost.'); }
+  if (tips.length === 0) tips.push('Prompt looks healthy. No issues detected.');
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const grade = score >= 85 ? 'Excellent' : score >= 70 ? 'Good' : score >= 50 ? 'Fair' : 'Needs work';
+  return { score, grade, tips };
+}
+
+function healthRingSvg(score) {
+  const r = 34, cx = 42, cy = 42;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  const color = score >= 85 ? '#3fb950' : score >= 70 ? '#e3b341' : score >= 50 ? '#ff9a5c' : '#ff7b72';
+  return `<svg width="84" height="84" viewBox="0 0 84 84">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#1f2937" stroke-width="6"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="6"
+      stroke-dasharray="${dash} ${circ}" stroke-linecap="round"
+      transform="rotate(-90 ${cx} ${cy})"/>
+    <text x="${cx}" y="${cy+5}" text-anchor="middle" fill="${color}" font-size="20" font-weight="700" font-family="monospace">${score}</text>
+  </svg>`;
+}
+
+// ---------- Header stat chips ----------
+async function updateHeaderStats() {
+  const host = document.getElementById('header-stats');
+  host.innerHTML = `<div class="stat-chip"><div class="skeleton" style="width:60px;height:12px"></div></div>`;
+  try {
+    const t = await api('/v1/tokens?prompt=' + encodeURIComponent(currentPrompt));
+    const cheapest = (t.estimates || [])
+      .filter(e => !e.error)
+      .reduce((min, e) => e.total_cost_usd < min ? e.total_cost_usd : min, Infinity);
+    const costStr = cheapest === Infinity ? '—' : (cheapest === 0 ? 'free' : `$${cheapest.toFixed(cheapest<0.01?6:4)}`);
+    host.innerHTML = `
+      <div class="stat-chip tokens"><div class="dot"></div><strong>${t.rendered_tokens}</strong> tokens</div>
+      <div class="stat-chip cost"><div class="dot"></div>from <strong>${costStr}</strong>/call</div>
+    `;
+    // Also update the sidebar badge for this prompt.
+    promptTokens[currentPrompt] = t.rendered_tokens;
+    updateTokenBadge(currentPrompt);
+  } catch {
+    host.innerHTML = '';
+  }
+}
+
+// ---------- Command Palette ----------
+function openCmdk() {
+  document.getElementById('cmdk').classList.add('show');
+  const inp = document.getElementById('cmdk-input');
+  inp.value = '';
+  inp.focus();
+  renderCmdk();
+}
+
+function closeCmdk() {
+  document.getElementById('cmdk').classList.remove('show');
+}
+
+function buildCmdkItems() {
+  const items = [];
+  // Tab navigation.
+  const tabs = [
+    ['content', 'Content', 'View raw template'],
+    ['render', 'Render', 'Render with variables'],
+    ['playground', 'Playground', 'Send to LLM'],
+    ['history', 'History', 'Version diff'],
+    ['evals', 'Evals', 'Eval history'],
+    ['metrics', 'Metrics', 'Token & cost analysis'],
+  ];
+  for (const [id, label, sub] of tabs) {
+    items.push({ type: 'tab', tabId: id, title: 'Go to ' + label, sub, icon: 'tab', action: () => { if (currentPrompt) switchTab(id); } });
+  }
+  // Prompts.
+  for (const name of promptNames) {
+    items.push({ type: 'prompt', title: name, sub: (promptTokens[name] != null ? promptTokens[name] + ' tok' : 'open prompt'), icon: 'file', action: () => selectPrompt(name) });
+  }
+  // Commands.
+  items.push({ type: 'cmd', title: 'Refresh data', sub: 'reload prompts & commits', icon: 'refresh', action: () => loadAll() });
+  items.push({ type: 'cmd', title: 'Show keyboard shortcuts', sub: 'help', icon: 'help', action: () => toggleHelp() });
+  return items;
+}
+
+function renderCmdk() {
+  const q = document.getElementById('cmdk-input').value.toLowerCase().trim();
+  const all = buildCmdkItems();
+  cmdkItems = q
+    ? all.filter(it => it.title.toLowerCase().includes(q) || (it.sub || '').toLowerCase().includes(q))
+    : all;
+  cmdkSel = 0;
+  const list = document.getElementById('cmdk-list');
+  if (cmdkItems.length === 0) {
+    list.innerHTML = '<div class="cmdk-empty">No results</div>';
+    return;
+  }
+  // Group: tabs first, then prompts, then commands.
+  const groups = { tab: 'Navigate', prompt: 'Prompts', cmd: 'Commands' };
+  let html = '';
+  for (const [g, label] of Object.entries(groups)) {
+    const items = cmdkItems.filter(it => it.type === g);
+    if (items.length === 0) continue;
+    html += `<div class="cmdk-group">${label}</div>`;
+    items.forEach(it => {
+      const idx = cmdkItems.indexOf(it);
+      html += `<div class="cmdk-item ${idx === cmdkSel ? 'sel' : ''}" onclick="cmdkClick(${idx})">
+        ${cmdIcon(it.icon)}
+        <span class="title">${escapeHtml(it.title)}</span>
+        <span class="sub">${escapeHtml(it.sub)}</span>
+      </div>`;
+    });
+  }
+  list.innerHTML = html;
+}
+
+function cmdIcon(name) {
+  const icons = {
+    tab: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9h18M9 21V9"/></svg>',
+    file: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    refresh: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>',
+    help: '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/></svg>',
+  };
+  return icons[name] || icons.file;
+}
+
+function cmdkClick(idx) {
+  const it = cmdkItems[idx];
+  if (it) { it.action(); closeCmdk(); }
+}
+
+function cmdkMove(delta) {
+  if (cmdkItems.length === 0) return;
+  cmdkSel = (cmdkSel + delta + cmdkItems.length) % cmdkItems.length;
+  // Update DOM.
+  document.querySelectorAll('.cmdk-item').forEach((el, i) => {
+    el.classList.toggle('sel', i === cmdkSel);
+  });
+  // Scroll into view.
+  const sel = document.querySelector('.cmdk-item.sel');
+  if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+
+// ---------- Keyboard ----------
+document.addEventListener('keydown', (e) => {
+  // Command palette: Cmd/Ctrl+K.
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    if (document.getElementById('cmdk').classList.contains('show')) closeCmdk();
+    else openCmdk();
+    return;
+  }
+  // Command palette navigation.
+  if (document.getElementById('cmdk').classList.contains('show')) {
+    if (e.key === 'Escape') { closeCmdk(); return; }
+    if (e.key === 'ArrowDown') { e.preventDefault(); cmdkMove(1); return; }
+    if (e.key === 'ArrowUp') { e.preventDefault(); cmdkMove(-1); return; }
+    if (e.key === 'Enter') { e.preventDefault(); cmdkClick(cmdkSel); return; }
+    return;
+  }
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') {
+    if (e.key === 'Enter' && currentTab === 'render') {
+      doRender();
+    }
+    return;
+  }
+  if (e.key === '?') { toggleHelp(); return; }
+  if (e.key === 'Escape') {
+    document.getElementById('help-overlay').classList.remove('show');
+    return;
+  }
+  if (e.key === '/') { e.preventDefault(); document.getElementById('search').focus(); return; }
+  if (e.key === 'r') { loadAll(); return; }
+  if (e.key === 'j' || e.key === 'k') {
+    if (promptNames.length === 0) return;
+    let i = promptNames.indexOf(currentPrompt);
+    if (e.key === 'j') i = Math.min(promptNames.length - 1, i + 1);
+    else i = Math.max(0, i === -1 ? 0 : i - 1);
+    selectPrompt(promptNames[i]);
+    return;
+  }
+  const tabMap = { '1':'content','2':'render','3':'playground','4':'history','5':'evals','6':'metrics' };
+  if (tabMap[e.key]) switchTab(tabMap[e.key]);
+});
+
+function toggleHelp() {
+  document.getElementById('help-overlay').classList.toggle('show');
+}
+
+// ---------- Boot ----------
+loadAll();
+</script>
+</body>
+</html>

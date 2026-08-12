@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PromptVault demo recording script.
+# prv demo recording script.
 #
 # Records a ~40-second terminal demo with asciinema, then converts to GIF.
 #
@@ -7,7 +7,7 @@
 #   1. Install tools:
 #        cargo install asciinema
 #        cargo install agg
-#   2. From the promptvault repo root, run:
+#   2. From the prv repo root, run:
 #        bash examples/record-demo.sh
 #   3. Output: docs/demo.cast  and  docs/demo.gif
 #
@@ -37,7 +37,7 @@ slow() { printf '%s\n' "\$1"; sleep "\${2:-0.8}"; }
 
 clear
 sleep 0.5
-slow '# PromptVault — Git for AI Prompts' 1.2
+slow '# prv — Prove your prompts' 1.2
 
 # --- init ---
 slow 'cd /tmp && rm -rf pv-demo && mkdir pv-demo && cd pv-demo' 0.4

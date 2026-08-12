@@ -35,8 +35,23 @@ pub enum Provider {
     Ollama,
 }
 
+/// Public dispatch to a provider's raw HTTP call. Used by both `pv run`
+/// (prints the response) and `pv eval --llm` (asserts/judges the response).
+pub fn dispatch(
+    provider: &Provider,
+    prompt: &str,
+    model: Option<&str>,
+    max_tokens: Option<u32>,
+) -> Result<String> {
+    match provider {
+        Provider::OpenAI => call_openai(prompt, model, max_tokens),
+        Provider::Anthropic => call_anthropic(prompt, model, max_tokens),
+        Provider::Ollama => call_ollama(prompt, model),
+    }
+}
+
 impl Provider {
-    fn parse(s: &str) -> Result<Self> {
+    pub fn parse(s: &str) -> Result<Self> {
         match s.to_ascii_lowercase().as_str() {
             "openai" => Ok(Provider::OpenAI),
             "anthropic" => Ok(Provider::Anthropic),
@@ -45,7 +60,7 @@ impl Provider {
         }
     }
 
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             Provider::OpenAI => "openai",
             Provider::Anthropic => "anthropic",

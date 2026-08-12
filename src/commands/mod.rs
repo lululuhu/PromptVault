@@ -10,6 +10,7 @@ pub mod completions;
 pub mod config;
 pub mod diff;
 pub mod eval;
+pub mod eval_log;
 pub mod export;
 pub mod grep;
 pub mod ignore;
@@ -17,14 +18,18 @@ pub mod init;
 pub mod list;
 pub mod log;
 pub mod merge;
+pub mod metrics;
 pub mod remote;
 pub mod reset;
 pub mod revert;
 pub mod rm;
 #[cfg(feature = "run")]
 pub mod run;
+#[cfg(feature = "serve")]
+pub mod serve;
 pub mod show;
 pub mod stats;
 pub mod status;
 pub mod stash;
 pub mod tag;
+pub mod tokens;

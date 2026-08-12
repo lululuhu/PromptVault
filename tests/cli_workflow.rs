@@ -9,7 +9,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use promptvault::commands;
+use prv::commands;
 use tempfile::TempDir;
 
 // Serialize all tests in this file (they all touch the global CWD).
@@ -70,7 +70,7 @@ fn full_lifecycle() {
 
     // The drafts dir must NOT be tracked.
     in_dir(root, || {
-        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let idx = prv::core::repository::Repo::find().unwrap().index().unwrap();
         let paths: Vec<&str> = idx.entries.iter().map(|e| e.path.as_str()).collect();
         assert!(paths.contains(&"prompts/summarize.md"));
         assert!(paths.contains(&"prompts/translate.md"));
@@ -80,8 +80,8 @@ fn full_lifecycle() {
     // Tag the initial version.
     in_dir(root, || {
         commands::tag::run(Some("v1"), None).unwrap();
-        let tags = promptvault::core::refs::list_tags(
-            &promptvault::core::repository::Repo::find().unwrap().pv_dir,
+        let tags = prv::core::refs::list_tags(
+            &prv::core::repository::Repo::find().unwrap().pv_dir,
         )
         .unwrap();
         assert_eq!(tags, vec!["v1".to_string()]);
@@ -120,7 +120,7 @@ fn full_lifecycle() {
     // rm untracks translate.
     in_dir(root, || {
         commands::rm::run(vec![PathBuf::from("prompts/translate.md")]).unwrap();
-        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let idx = prv::core::repository::Repo::find().unwrap().index().unwrap();
         assert!(idx.entries.iter().all(|e| e.path != "prompts/translate.md"));
     });
 }
@@ -158,7 +158,7 @@ fn eval_renders_and_asserts() {
     );
     in_dir(root, || {
         // Should not error.
-        commands::eval::run("p.md", PathBuf::from("cases.jsonl"), false, false).unwrap();
+        commands::eval::run("p.md", PathBuf::from("cases.jsonl"), false, false, false).unwrap();
     });
 }
 
@@ -224,13 +224,13 @@ fn reset_unstages_a_file() {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
         commands::reset::run(vec![PathBuf::from("a.md")]).unwrap();
         // After reset, the index should match HEAD (v1).
-        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let idx = prv::core::repository::Repo::find().unwrap().index().unwrap();
         let entry = idx.entries.iter().find(|e| e.path == "a.md").unwrap();
         let head_hash = {
-            let repo = promptvault::core::repository::Repo::find().unwrap();
+            let repo = prv::core::repository::Repo::find().unwrap();
             let h = repo.head_commit().unwrap().unwrap();
-            let commit = promptvault::core::objects::read_commit(&repo.pv_dir, &h).unwrap();
-            let tree = promptvault::core::objects::read_tree(&repo.pv_dir, &commit.tree).unwrap();
+            let commit = prv::core::objects::read_commit(&repo.pv_dir, &h).unwrap();
+            let tree = prv::core::objects::read_tree(&repo.pv_dir, &commit.tree).unwrap();
             tree.iter().find(|e| e.path == "a.md").unwrap().hash.clone()
         };
         assert_eq!(entry.hash, head_hash);
@@ -442,7 +442,7 @@ fn revert_refuses_dirty_tree() {
 
 #[test]
 fn render_preserves_unicode() {
-    use promptvault::render::render;
+    use prv::render::render;
     let mut vars = std::collections::HashMap::new();
     vars.insert("x".to_string(), "世界".to_string());
     let out = render("hello {{x}} 🌍", &vars, false).unwrap();
@@ -479,9 +479,9 @@ fn config_set_get_list() {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
         commands::commit::run("c1").unwrap();
         // The commit object should carry "Alice".
-        let repo = promptvault::core::repository::Repo::find().unwrap();
+        let repo = prv::core::repository::Repo::find().unwrap();
         let head = repo.head_commit().unwrap().unwrap();
-        let commit = promptvault::core::objects::read_commit(&repo.pv_dir, &head).unwrap();
+        let commit = prv::core::objects::read_commit(&repo.pv_dir, &head).unwrap();
         assert_eq!(commit.author.as_deref(), Some("Alice"));
     });
 }
@@ -528,7 +528,7 @@ fn checkout_detached_at_commit() {
         commands::add::run(vec![PathBuf::from("a.md")]).unwrap();
         commands::commit::run("c1").unwrap();
         let first_hash = {
-            let repo = promptvault::core::repository::Repo::find().unwrap();
+            let repo = prv::core::repository::Repo::find().unwrap();
             repo.head_commit().unwrap().unwrap()
         };
         write_at_cwd("a.md", "v2\n");
@@ -608,7 +608,7 @@ fn ignore_patterns_are_enforced() {
     // `pv add .` should stage keep.md but NOT secrets/key.md.
     in_dir(root, || {
         commands::add::run(vec![PathBuf::from(".")]).unwrap();
-        let idx = promptvault::core::repository::Repo::find().unwrap().index().unwrap();
+        let idx = prv::core::repository::Repo::find().unwrap().index().unwrap();
         let paths: Vec<&str> = idx.entries.iter().map(|e| e.path.as_str()).collect();
         assert!(paths.contains(&"keep.md"));
         assert!(!paths.iter().any(|p| p.contains("secrets")));

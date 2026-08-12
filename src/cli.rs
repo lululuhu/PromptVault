@@ -6,7 +6,7 @@ use std::path::PathBuf;
     name = "pv",
     version,
     about = "Git for AI Prompts — version, diff, branch, and roll back your prompts",
-    long_about = "PromptVault is a local-first version control system for AI prompts.\n\
+    long_about = "prv (Prove your prompts) is a local-first version control system for AI prompts.\n\
                   Version your prompts like code: snapshot, diff, log, and roll back — \
                   all stored locally as content-addressed objects."
 )]
@@ -126,6 +126,18 @@ pub enum Command {
         show_prompt: bool,
     },
 
+    /// Start a local HTTP server + Web GUI for the vault (requires `serve` feature)
+    #[cfg(feature = "serve")]
+    Serve {
+        /// Host to bind (default: 127.0.0.1, use 0.0.0.0 to expose)
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+
+        /// Port to bind (default: 8787)
+        #[arg(short, long, default_value_t = 8787)]
+        port: u16,
+    },
+
     /// Add prompt files to the staging area
     Add {
         /// Files or directories to add (use '.' for all)
@@ -191,9 +203,14 @@ pub enum Command {
     #[command(
         long_about = "Evaluate a prompt template by rendering it against each case in a \
         JSON Lines dataset. Each line is a JSON object whose keys fill the {{variables}} \
-        in the prompt. If a case has an `expected` key, the rendered prompt is checked to \
-        contain that string. PromptVault never calls a model — it only renders and asserts. \
-        Pipe the output to any model runner you trust."
+        in the prompt.\n\
+        \n\
+        Three modes:\n\
+          1. Render-only (default): assert rendered prompt contains `expected`.\n\
+          2. LLM-output (--llm): call LLM, assert its output contains `expected_output`.\n\
+          3. LLM-judge (--llm --judge): call LLM, score output 0-10 against `rubric`.\n\
+        \n\
+        LLM modes require the `run` feature and provider API keys in env vars."
     )]
     Eval {
         /// Prompt file path, `HEAD:path`, or blob hash
@@ -210,6 +227,33 @@ pub enum Command {
         /// Print the fully rendered prompt for each case
         #[arg(long)]
         show: bool,
+
+        /// Call an LLM and assert/judge its output (requires `run` feature)
+        /// Provider: openai | anthropic | ollama
+        #[cfg(feature = "run")]
+        #[arg(long, value_name = "PROVIDER")]
+        llm: Option<String>,
+
+        /// Model name (provider-specific default if omitted)
+        #[cfg(feature = "run")]
+        #[arg(short, long)]
+        model: Option<String>,
+
+        /// Use LLM-as-judge: score each output 0-10 against the case's `rubric`
+        #[cfg(feature = "run")]
+        #[arg(long)]
+        judge: bool,
+
+        /// Don't record this eval to `.pv/evals/` (history is recorded by default)
+        #[arg(long)]
+        no_record: bool,
+    },
+
+    /// Show eval history for a prompt (recorded by `pv eval`)
+    #[command(alias = "evals")]
+    EvalLog {
+        /// Prompt name (same spec as `pv eval`)
+        prompt: String,
     },
 
     /// Stash uncommitted changes (push/pop/drop/list)
@@ -252,6 +296,47 @@ pub enum Command {
 
     /// Show vault statistics (commits, blobs, branches, disk usage)
     Stats,
+
+    /// Count tokens in a rendered prompt and estimate API cost across models
+    Tokens {
+        /// Prompt file path, `HEAD:path`, `branch:path`, or blob hash
+        prompt: String,
+
+        /// Variable bindings as `key=value` (repeatable)
+        #[arg(short = 'v', long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Specific model ids to estimate (e.g. `gpt-4o`, `claude-3-5-sonnet-latest`).
+        /// Defaults to a curated set of popular models.
+        #[arg(short = 'm', long = "model", value_name = "MODEL")]
+        models: Vec<String>,
+
+        /// Override the assumed output token count (default: half of input, 200..=2000)
+        #[arg(long, value_name = "N")]
+        max_tokens: Option<u32>,
+
+        /// Output as JSON (for scripting / dashboards)
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Full prompt analytics: tokens, variables, complexity, readability, cost
+    Metrics {
+        /// Prompt file path, `HEAD:path`, `branch:path`, or blob hash
+        prompt: String,
+
+        /// Variable bindings as `key=value` (repeatable)
+        #[arg(short = 'v', long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Specific model ids to estimate (defaults to a curated set)
+        #[arg(short = 'm', long = "model", value_name = "MODEL")]
+        models: Vec<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Show which commit last touched each line of a prompt
     Blame {

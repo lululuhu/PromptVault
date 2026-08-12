@@ -1,12 +1,12 @@
 [package]
-name = "promptvault"
-version = "0.2.1"
+name = "prv"
+version = "0.3.0"
 edition = "2021"
-authors = ["PromptVault Contributors"]
+authors = ["prv Contributors"]
 license = "MIT"
-description = "Git for AI Prompts — version, diff, branch, and roll back your prompts. Local-first, blazingly fast."
-repository = "https://github.com/lululuhu/promptvault"
-homepage = "https://github.com/lululuhu/promptvault"
+description = "Prove your prompts — version, diff, branch, evaluate, and serve AI prompts. Local-first, blazingly fast."
+repository = "https://github.com/lululuhu/prv"
+homepage = "https://github.com/lululuhu/prv"
 keywords = ["prompt", "prompt-engineering", "version-control", "ai", "llm"]
 categories = ["command-line-utilities", "development-tools"]
 readme = "README.md"
@@ -16,7 +16,7 @@ name = "pv"
 path = "src/main.rs"
 
 [lib]
-name = "promptvault"
+name = "prv"
 path = "src/lib.rs"
 
 [dependencies]
@@ -39,6 +39,10 @@ default = []
 # Enable `pv run` — model calls over HTTP. Off by default so the default build
 # has zero network code and no HTTP dependencies.
 run = ["dep:reqwest", "dep:tiktoken-rs"]
+# Enable `pv serve` — local HTTP server + Web GUI. Off by default so the
+# default build has zero HTTP server code. Implies `run` so the OpenAI-
+# compatible endpoint can call LLM providers.
+serve = ["dep:tiny_http", "run"]
 
 [dependencies.reqwest]
 version = "0.12"
@@ -48,6 +52,10 @@ optional = true
 
 [dependencies.tiktoken-rs]
 version = "0.5"
+optional = true
+
+[dependencies.tiny_http]
+version = "0.12"
 optional = true
 
 [dev-dependencies]
