@@ -52,24 +52,22 @@ JSON
 DRIVER=$(mktemp /tmp/pv-demo-driver.XXXXXX.sh)
 cat > "$DRIVER" <<EOF
 #!/usr/bin/env bash
-export PS1='\$ '
+export PATH="$PWD/target/release:$PATH"
+export PS1='$ '
 PROMPT_COMMAND=''
-slow() { printf '%s\n' "\$1"; sleep "\${2:-0.7}"; }
+# Echo the command (so viewer sees what's typed), then actually run it.
+slow() { printf '%s\n' "\$1"; eval "\$1"; sleep "\${2:-0.7}"; }
+# Comment-only line: just show it, don't eval.
+show() { printf '%s\n' "\$1"; sleep "\${2:-0.7}"; }
 
 clear
 sleep 0.4
-slow '# prv — Prove your prompts' 1.0
+show '# prv — Prove your prompts' 1.0
 
 # --- init + first prompts ---
 slow 'cd /tmp && rm -rf pv-demo && mkdir pv-demo && cd pv-demo' 0.3
 slow 'pv init' 0.5
-slow 'mkdir prompts && cat > prompts/summarize.md <<EOF
-You are a precise summarizer.
-
-Summarize the text below in 3 concise bullets, then propose a title.
-
-{{text}}
-EOF' 0.5
+slow 'mkdir -p prompts && printf "%s\n" "You are a precise summarizer." "" "Summarize the text below in 3 concise bullets, then propose a title." "" "{{text}}" "" > prompts/summarize.md' 0.4
 slow 'pv add prompts/ && pv commit -m "feat: initial prompt set"' 0.6
 
 # --- iterate + diff ---
@@ -85,8 +83,8 @@ slow 'pv import --from chatgpt $EXPORT --add' 1.0
 slow 'pv commit -m "import: chatgpt prompts"' 0.5
 
 # --- serve (Web GUI) ---
-slow '# pv serve  →  open http://127.0.0.1:8787  (Web GUI)' 1.2
-slow 'echo ✓ done' 0.6
+show '# pv serve  →  open http://127.0.0.1:8787  (Web GUI)' 1.2
+show 'echo done' 0.6
 sleep 0.4
 exit 0
 EOF

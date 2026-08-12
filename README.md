@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/demo.svg?v=2" alt="prv demo">
+  <img src="docs/demo.gif" alt="prv demo">
 </p>
 
 <p align="center">
