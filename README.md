@@ -1,7 +1,7 @@
 # prv
 
 <p align="center">
-  <img src="docs/logo.svg" width="320" alt="prv logo">
+  <img src="docs/logo.svg" width="240" alt="prv logo">
 </p>
 
 <p align="center">
@@ -13,11 +13,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lululuhu/prv/actions/workflows/ci.yml"><img src="https://github.com/lululuhu/prv/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/lululuhu/prove-prompts/actions/workflows/ci.yml"><img src="https://github.com/lululuhu/prove-prompts/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://crates.io/crates/prv"><img src="https://img.shields.io/crates/v/prv.svg" alt="crates.io"></a>
   <img src="https://img.shields.io/badge/rust-1.74%2B-orange.svg" alt="Rust">
-  <a href="https://github.com/lululuhu/prv/stargazers"><img src="https://img.shields.io/github/stars/lululuhu/prv?style=social" alt="stars"></a>
+  <a href="https://github.com/lululuhu/prove-prompts/stargazers"><img src="https://img.shields.io/github/stars/lululuhu/prove-prompts?style=social" alt="stars"></a>
 </p>
 
 ---
@@ -107,7 +107,7 @@ pv log           # walk back through every iteration
 ### Option 1: Prebuilt binary (no Rust toolchain needed)
 
 Download the latest binary for your platform from the
-[Releases page](https://github.com/lululuhu/prv/releases):
+[Releases page](https://github.com/lululuhu/prove-prompts/releases):
 
 | Platform | File |
 |---|---|
@@ -128,7 +128,7 @@ cargo install prv
 ### Option 3: build from source
 
 ```bash
-git clone https://github.com/lululuhu/prv
+git clone https://github.com/lululuhu/prove-prompts
 cd prv
 
 # Default build (no network code):

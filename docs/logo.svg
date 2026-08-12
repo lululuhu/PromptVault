@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 120" width="320" height="120">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" width="200" height="240">
   <defs>
     <linearGradient id="markGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#58a6ff"/>
       <stop offset="100%" stop-color="#bc8cff"/>
     </linearGradient>
     <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feGaussianBlur stdDeviation="8" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -13,18 +13,18 @@
     </filter>
   </defs>
 
-  <!-- Logo mark: rounded square with gradient + layers icon -->
+  <!-- Logo mark: large rounded square with gradient + layers icon -->
   <g filter="url(#glow)">
-    <rect x="10" y="10" width="100" height="100" rx="28" fill="url(#markGrad)"/>
+    <rect x="20" y="20" width="160" height="160" rx="40" fill="url(#markGrad)"/>
   </g>
-  <g transform="translate(35, 35) scale(2.083)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(60, 60) scale(3.333)" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="M12 2 2 7l10 5 10-5-10-5Z"/>
     <path d="m2 17 10 5 10-5"/>
     <path d="m2 12 10 5 10-5"/>
   </g>
 
-  <!-- Wordmark: p r v  (r highlighted in accent blue) -->
-  <text x="130" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="56" font-weight="700" fill="#e6edf3" letter-spacing="-2">
+  <!-- Wordmark: p r v  (r highlighted in accent blue), below the mark -->
+  <text x="100" y="225" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="52" font-weight="700" fill="#e6edf3" letter-spacing="-2">
     <tspan>p</tspan><tspan fill="#58a6ff">r</tspan><tspan>v</tspan>
   </text>
 </svg>
